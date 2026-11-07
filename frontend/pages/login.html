@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion · SmartLearn</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="bg-frame">
+
+  <!-- Shared Navbar -->
+  <nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm py-2">
+    <div class="container-xl">
+      <a class="brand-logo-wrap" href="../index.html">
+        <span class="brand-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </span>
+        <span>SmartLearn <small class="text-muted fs-6 fw-normal">· Study smarter, even on low data.</small></span>
+      </a>
+      <div class="ms-auto d-flex gap-2">
+        <a href="register.html" class="btn btn-outline-pill btn-sm">S'inscrire</a>
+        <a href="../index.html" class="btn btn-sm btn-outline-secondary rounded-pill">Accueil</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Login Card -->
+  <div class="auth-page">
+    <div class="auth-card">
+      
+      <!-- Brand header -->
+      <div class="text-center mb-4">
+        <a href="../index.html" class="brand-logo-wrap justify-content-center mb-2">
+          <span class="brand-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </span>
+          <span>SmartLearn</span>
+        </a>
+        <h2 class="auth-title">Connexion</h2>
+        <p class="text-muted small">Accédez à vos cours, quiz et ressources SmartLearn</p>
+      </div>
+
+      <!-- Feedback alert container -->
+      <div id="authAlert" class="d-none"></div>
+
+      <!-- Backend Connection Status Indicator -->
+      <div id="backendStatusBanner" class="alert alert-light border py-2 px-3 small d-flex align-items-center justify-content-between mb-3 rounded-3">
+        <span id="backendStatusText"><i class="bi bi-arrow-repeat spin me-1"></i> Vérification API FastAPI...</span>
+        <span class="badge bg-secondary" id="backendBadge">Vérification</span>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" novalidate>
+        
+        <!-- Role selection -->
+        <div class="mb-3">
+          <label for="roleSelect" class="form-label fw-semibold small text-muted">Rôle</label>
+          <select class="form-select form-control-custom" id="roleSelect" required>
+            <option value="student" selected>Élève (Student)</option>
+            <option value="teacher">Enseignant (Teacher)</option>
+          </select>
+        </div>
+
+        <!-- Username / Email -->
+        <div class="mb-3">
+          <label for="username" class="form-label fw-semibold small text-muted">Nom d'utilisateur ou Email</label>
+          <div class="input-group">
+            <span class="input-group-text bg-light border-end-0 rounded-start-3">
+              <i class="bi bi-person text-muted"></i>
+            </span>
+            <input 
+              type="text" 
+              class="form-control form-control-custom rounded-start-0" 
+              id="username" 
+              placeholder="ex: Fatoumata32" 
+              required
+            >
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <label for="password" class="form-label fw-semibold small text-muted mb-0">Mot de passe</label>
+            <a href="#" class="small text-decoration-none" style="color: var(--secondary-purple);">Mot de passe oublié ?</a>
+          </div>
+          <div class="input-group mt-1">
+            <span class="input-group-text bg-light border-end-0 rounded-start-3">
+              <i class="bi bi-lock text-muted"></i>
+            </span>
+            <input 
+              type="password" 
+              class="form-control form-control-custom rounded-start-0" 
+              id="password" 
+              placeholder="••••••••" 
+              required
+            >
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn btn-auth-submit w-100 mt-2">
+          Se connecter
+        </button>
+
+        <!-- Quick Demo credentials box -->
+        <div class="demo-credentials-box">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fw-bold" style="color: var(--primary-purple);"><i class="bi bi-key-fill me-1"></i> Identifiants de test</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill" id="btnQuickFill" style="font-size: 0.75rem;">
+              Pré-remplir
+            </button>
+          </div>
+          <div class="small text-muted font-monospace">
+            Utilisateur: <strong>Fatoumata32</strong><br>
+            Mot de passe: <strong>Fatoumata:121995</strong>
+          </div>
+        </div>
+
+        <div class="text-center mt-4">
+          <p class="text-muted small mb-1">
+            Pas encore de compte ? 
+            <a href="register.html" class="fw-semibold text-decoration-none" style="color: var(--secondary-purple);">
+              S'inscrire
+            </a>
+          </p>
+          <a href="../index.html" class="text-decoration-none small text-muted">
+            <i class="bi bi-arrow-left me-1"></i>Retour à l'accueil
+          </a>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/main.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    // Live backend connection check
+    document.addEventListener('DOMContentLoaded', async () => {
+      const statusText = document.getElementById('backendStatusText');
+      const badge = document.getElementById('backendBadge');
+      if (window.SmartLearnAPI) {
+        const isConnected = await window.SmartLearnAPI.checkBackendHealth();
+        if (isConnected) {
+          statusText.innerHTML = '<i class="bi bi-check-circle-fill text-success me-1"></i> Backend FastAPI connecté (localhost:8000)';
+          badge.className = 'badge bg-success';
+          badge.textContent = 'En ligne';
+        } else {
+          statusText.innerHTML = '<i class="bi bi-info-circle text-primary me-1"></i> Mode Frontend autonome (API en attente)';
+          badge.className = 'badge bg-primary';
+          badge.textContent = 'Frontend Prêt';
+        }
+      }
+    });
+  </script>
+</body>
+</html>
