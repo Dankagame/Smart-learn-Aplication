@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartLearn · Learn anywhere, even on low data.</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="frontend/css/style.css">
+</head>
+<body>
+
+  <!-- App Wrapper (Card Frame Matching Design) -->
+  <div class="app-wrapper">
+    <div class="container-xl px-0 main-canvas">
+      
+      <!-- Top Shared Navigation Bar -->
+      <nav class="navbar navbar-expand-lg navbar-custom">
+        <div class="container-fluid px-0">
+          <!-- Logo & Brand Name on Left -->
+          <a class="brand-logo-wrap" href="index.html">
+            <span class="brand-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+            </span>
+            <span>SmartLearn</span>
+          </a>
+
+          <!-- Mobile Hamburger -->
+          <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <!-- Nav Menu -->
+          <div class="collapse navbar-collapse justify-content-end" id="navbarContent">
+            <ul class="navbar-nav align-items-center mb-2 mb-lg-0 me-lg-4 gap-lg-1">
+              <li class="nav-item">
+                <a class="nav-link nav-link-custom active" aria-current="page" href="index.html">Home</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link nav-link-custom" href="#who-is-it-for">Who is it for?</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link nav-link-custom" href="#features">Features</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link nav-link-custom" href="#courses">Courses</a>
+              </li>
+            </ul>
+
+            <!-- Navbar Right: Login and Register buttons -->
+            <div class="d-flex align-items-center gap-2 mt-2 mt-lg-0">
+              <a href="frontend/pages/login.html" class="btn btn-outline-pill">Login</a>
+              <a href="frontend/pages/register.html" class="btn btn-contact">Register</a>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Hero Section -->
+      <section class="hero-section">
+        <div class="row align-items-center g-4">
+          
+          <!-- Left Column: Headline, Tagline, Description & CTAs -->
+          <div class="col-lg-6 col-md-12">
+            
+            <!-- Tagline Badge -->
+            <div class="mb-3">
+              <span class="badge bg-purple-subtle text-primary-emphasis px-3 py-2 rounded-pill fw-semibold">
+                <i class="bi bi-lightning-charge-fill me-1"></i>Learn anywhere, even on low data.
+              </span>
+            </div>
+
+            <!-- SmartLearn Name & Hero Title -->
+            <h1 class="hero-title">
+              Brighten Your Future<br>
+              to Achieve More
+            </h1>
+
+            <!-- Short sentence about what SmartLearn does -->
+            <p class="hero-subtitle">
+              SmartLearn is a lightweight web application that helps secondary school students prepare for national exams with curriculum-aligned study materials and instant practice quizzes, while giving teachers a simple, low-cost way to share notes and track student results.
+            </p>
+
+            <!-- Primary CTAs: "Get Started" links to the register page -->
+            <div class="cta-group">
+              <a href="frontend/pages/register.html" class="btn btn-get-started" id="btnGetStarted">
+                Get Started <i class="bi bi-arrow-right ms-1"></i>
+              </a>
+              <a href="frontend/pages/login.html" class="btn btn-learn-more">
+                Sign In
+              </a>
+            </div>
+
+            <!-- Real Core Feature Highlights (Replacing made-up statistics) -->
+            <div class="stats-row">
+              <div class="stat-item">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="bi bi-mortarboard-fill text-primary fs-3"></i>
+                  <div>
+                    <span class="stat-number fs-6 fw-bold text-dark">Curriculum Aligned</span>
+                    <span class="stat-label d-block text-muted small">Courses by subject & level</span>
+                  </div>
+                </div>
+              </div>
+              <div class="stats-divider"></div>
+              <div class="stat-item">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="bi bi-patch-check-fill text-success fs-3"></i>
+                  <div>
+                    <span class="stat-number fs-6 fw-bold text-dark">Instant Scores</span>
+                    <span class="stat-label d-block text-muted small">Quizzes with instant marks</span>
+                  </div>
+                </div>
+              </div>
+              <div class="stats-divider"></div>
+              <div class="stat-item">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="bi bi-phone-fill text-info fs-3"></i>
+                  <div>
+                    <span class="stat-number fs-6 fw-bold text-dark">Works on Low Data</span>
+                    <span class="stat-label d-block text-muted small">Loads fast on slow networks</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right Column: Visual Layout with Clean Photo and Floating Badges -->
+          <div class="col-lg-6 col-md-12">
+            <div class="hero-visual-container">
+              <!-- Background grid -->
+              <div class="grid-background"></div>
+
+              <!-- Organic purple blob shape -->
+              <div class="blob-shape"></div>
+
+              <!-- Clean Framed Student Photo Card with Badges -->
+              <div class="hero-card-wrapper position-relative" style="z-index: 3; max-width: 420px; width: 100%;">
+                <img src="frontend/assets/images/hero-student.jpg" alt="SmartLearn Student" class="img-fluid rounded-4 shadow-lg border border-3 border-white w-100" style="height: 440px; object-fit: cover; object-position: top center;">
+                
+                <!-- Floating Badge 1: Curriculum -->
+                <div class="position-absolute bg-white px-3 py-2 rounded-4 shadow-sm border d-flex align-items-center gap-2" style="top: 20px; left: -15px; animation: floatBadge 4s ease-in-out infinite;">
+                  <span class="rounded-circle p-2 bg-success-subtle text-success d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                    <i class="bi bi-mortarboard-fill"></i>
+                  </span>
+                  <div>
+                    <div class="fw-bold small text-dark lh-1">Curriculum S4 - S6</div>
+                    <small class="text-muted" style="font-size: 0.72rem;">Rwanda National Exams</small>
+                  </div>
+                </div>
+
+                <!-- Floating Badge 2: Low Data Mode -->
+                <div class="position-absolute bg-white px-3 py-2 rounded-4 shadow-sm border d-flex align-items-center gap-2" style="bottom: 25px; right: -15px; animation: floatBadge 4s ease-in-out infinite reverse;">
+                  <span class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background-color: var(--light-lilac);">
+                    <i class="bi bi-lightning-charge-fill" style="color: var(--primary-purple);"></i>
+                  </span>
+                  <div>
+                    <div class="fw-bold small text-dark lh-1">Low-Data Friendly</div>
+                    <small class="text-muted" style="font-size: 0.72rem;">Loads fast on 2G / 3G</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- "Who is it for?" Section with Two Bootstrap Cards -->
+      <section class="py-5 px-4 px-md-5 bg-white border-top border-bottom" id="who-is-it-for">
+        <div class="text-center max-w-700 mx-auto mb-5">
+          <span class="section-tag">Target Audience</span>
+          <h2 class="section-heading">Who is it for?</h2>
+          <p class="text-muted">Designed specifically to bridge educational inequalities for secondary school communities.</p>
+        </div>
+
+        <div class="row g-4 justify-content-center">
+          
+          <!-- Card 1: Students -->
+          <div class="col-md-6 col-lg-5">
+            <div class="card h-100 border-0 rounded-4 shadow-sm p-4 p-lg-5" style="background: linear-gradient(145deg, #fbf9fe 0%, #f3ebfc 100%); border: 1.5px solid #e7ddf7 !important;">
+              <div class="d-flex align-items-center gap-3 mb-4">
+                <div class="rounded-4 p-3 d-flex align-items-center justify-content-center" style="background-color: #4a2c7a; color: #ffffff; width: 60px; height: 60px; font-size: 1.6rem;">
+                  <i class="bi bi-mortarboard-fill"></i>
+                </div>
+                <div>
+                  <span class="badge bg-white text-dark rounded-pill px-3 py-1 fw-bold border">Primary Users</span>
+                  <h3 class="h4 fw-bold mb-0 text-dark">Students</h3>
+                </div>
+              </div>
+              <p class="text-muted mb-4">Secondary school learners preparing for national exams (Senior 4, Senior 5, Senior 6) on phones and limited mobile data.</p>
+              
+              <ul class="list-unstyled d-flex flex-column gap-3 mb-4">
+                <li class="d-flex align-items-start gap-2">
+                  <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                  <span><strong>Browse learning materials:</strong> Find curriculum-aligned notes organized by subject and level in one place.</span>
+                </li>
+                <li class="d-flex align-items-start gap-2">
+                  <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                  <span><strong>Take practice quizzes:</strong> Test your understanding with multiple-choice questions before real exams.</span>
+                </li>
+                <li class="d-flex align-items-start gap-2">
+                  <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                  <span><strong>See your marks:</strong> Get instant scores, detailed feedback, and track your history over time.</span>
+                </li>
+              </ul>
+
+              <div class="mt-auto pt-3">
+                <a href="frontend/pages/register.html" class="btn btn-outline-pill w-100">Join as a Student →</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Teachers -->
+          <div class="col-md-6 col-lg-5">
+            <div class="card h-100 border-0 rounded-4 shadow-sm p-4 p-lg-5" style="background: linear-gradient(145deg, #f7f9fe 0%, #edf2fc 100%); border: 1.5px solid #dce6f9 !important;">
+              <div class="d-flex align-items-center gap-3 mb-4">
+                <div class="rounded-4 p-3 d-flex align-items-center justify-content-center" style="background-color: #1976d2; color: #ffffff; width: 60px; height: 60px; font-size: 1.6rem;">
+                  <i class="bi bi-person-video3"></i>
+                </div>
+                <div>
+                  <span class="badge bg-white text-dark rounded-pill px-3 py-1 fw-bold border">Educators</span>
+                  <h3 class="h4 fw-bold mb-0 text-dark">Teachers</h3>
+                </div>
+              </div>
+              <p class="text-muted mb-4">Subject teachers who want a simple, affordable tool to support all of their students beyond the classroom walls.</p>
+              
+              <ul class="list-unstyled d-flex flex-column gap-3 mb-4">
+                <li class="d-flex align-items-start gap-2">
+                  <i class="bi bi-check-circle-fill text-primary fs-5"></i>
+                  <span><strong>Create courses:</strong> Organize subjects and levels (e.g. <em>Mathematics – S6</em>) with no complex setup.</span>
+                </li>
+                <li class="d-flex align-items-start gap-2">
+                  <i class="bi bi-check-circle-fill text-primary fs-5"></i>
+                  <span><strong>Post materials:</strong> Publish revision notes and useful links once to reach every student in the course.</span>
+                </li>
+                <li class="d-flex align-items-start gap-2">
+                  <i class="bi bi-check-circle-fill text-primary fs-5"></i>
+                  <span><strong>Build quizzes:</strong> Create multiple-choice quizzes with options and automatic grading keys.</span>
+                </li>
+                <li class="d-flex align-items-start gap-2">
+                  <i class="bi bi-check-circle-fill text-primary fs-5"></i>
+                  <span><strong>Track student results:</strong> Review class performance analytics to see where students need extra help.</span>
+                </li>
+              </ul>
+
+              <div class="mt-auto pt-3">
+                <a href="frontend/pages/register.html" class="btn btn-outline-pill w-100">Join as a Teacher →</a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Short Features Section -->
+      <section class="py-5 px-4 px-md-5 bg-soft" id="features">
+        <div class="text-center max-w-700 mx-auto mb-5">
+          <span class="section-tag">Core Features</span>
+          <h2 class="section-heading">Built for Low-Data Learning</h2>
+          <p class="text-muted">High-impact features designed to deliver maximum learning outcomes with minimum mobile data usage.</p>
+        </div>
+
+        <div class="row g-4">
+          <!-- Feature 1 -->
+          <div class="col-md-4">
+            <div class="card h-100 border-0 rounded-4 shadow-sm p-4 bg-white">
+              <div class="rounded-3 p-3 mb-3 d-inline-flex" style="background-color: #ede7f6; color: #5e35b1;">
+                <i class="bi bi-folder2-open fs-3"></i>
+              </div>
+              <h3 class="h5 fw-bold mb-2">Courses by Subject & Level</h3>
+              <p class="text-muted small mb-0">Browse curriculum-aligned study materials grouped neatly by subject and grade (Senior 4, 5, 6). No more losing files buried in crowded WhatsApp chats.</p>
+            </div>
+          </div>
+
+          <!-- Feature 2 -->
+          <div class="col-md-4">
+            <div class="card h-100 border-0 rounded-4 shadow-sm p-4 bg-white">
+              <div class="rounded-3 p-3 mb-3 d-inline-flex" style="background-color: #e8f5e9; color: #2e7d32;">
+                <i class="bi bi-patch-check-fill fs-3"></i>
+              </div>
+              <h3 class="h5 fw-bold mb-2">Quizzes with Instant Scores</h3>
+              <p class="text-muted small mb-0">Practice with multiple-choice quizzes, submit your answers, and receive your score instantly with explanations to find weak areas before real national exams.</p>
+            </div>
+          </div>
+
+          <!-- Feature 3 -->
+          <div class="col-md-4">
+            <div class="card h-100 border-0 rounded-4 shadow-sm p-4 bg-white">
+              <div class="rounded-3 p-3 mb-3 d-inline-flex" style="background-color: #e0f2fe; color: #0284c7;">
+                <i class="bi bi-phone fs-3"></i>
+              </div>
+              <h3 class="h5 fw-bold mb-2">Works on Phones & Slow Networks</h3>
+              <p class="text-muted small mb-0">No heavy app to install. Built with clean HTML, Bootstrap 5, and vanilla JavaScript that loads quickly even on basic smartphones and 2G/3G connections.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Course & Curriculum Explorer Section -->
+      <section class="section-courses" id="courses">
+        <div class="row mb-4 align-items-end">
+          <div class="col-md-8">
+            <span class="section-tag">Rwanda National Curriculum</span>
+            <h2 class="section-heading">Browse Courses & Learning Materials</h2>
+            <p class="text-muted mb-0">Prepared specifically for secondary school students in Rwanda & East Africa preparing for national exams.</p>
+          </div>
+          <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="frontend/pages/login.html" class="btn btn-outline-pill">Explore All in Dashboard →</a>
+          </div>
+        </div>
+
+        <div class="row g-4" id="landingCoursesGrid">
+          <!-- Mathematics -->
+          <div class="col-md-6 col-lg-3">
+            <div class="card-course">
+              <div class="course-thumb-wrap">
+                <img src="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=600&q=80" alt="Mathematics">
+                <span class="course-level-badge">Senior 6 (S6)</span>
+              </div>
+              <div class="course-body">
+                <h3 class="course-title">Mathematics</h3>
+                <div class="course-teacher"><i class="bi bi-person me-1"></i>Mr. Habimana</div>
+                <p class="course-desc">Calculus, vectors in 3D, trigonometry, and national past exam papers with step-by-step solutions.</p>
+                <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+                  <small class="text-muted"><i class="bi bi-file-earmark-text me-1"></i>24 Notes</small>
+                  <a href="frontend/pages/login.html" class="btn btn-sm btn-outline-pill">Practice Quiz</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Physics -->
+          <div class="col-md-6 col-lg-3">
+            <div class="card-course">
+              <div class="course-thumb-wrap">
+                <img src="https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=600&q=80" alt="Physics">
+                <span class="course-level-badge">Senior 6 (S6)</span>
+              </div>
+              <div class="course-body">
+                <h3 class="course-title">Physics</h3>
+                <div class="course-teacher"><i class="bi bi-person me-1"></i>Dr. Uwase</div>
+                <p class="course-desc">Classical mechanics, wave optics, electromagnetic induction, and experimental problem sets.</p>
+                <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+                  <small class="text-muted"><i class="bi bi-file-earmark-text me-1"></i>18 Notes</small>
+                  <a href="frontend/pages/login.html" class="btn btn-sm btn-outline-pill">Practice Quiz</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chemistry -->
+          <div class="col-md-6 col-lg-3">
+            <div class="card-course">
+              <div class="course-thumb-wrap">
+                <img src="https://images.unsplash.com/photo-1603126857599-f6e157fa2fe6?auto=format&fit=crop&w=600&q=80" alt="Chemistry">
+                <span class="course-level-badge">Senior 5 (S5)</span>
+              </div>
+              <div class="course-body">
+                <h3 class="course-title">Chemistry</h3>
+                <div class="course-teacher"><i class="bi bi-person me-1"></i>Mrs. Mukamana</div>
+                <p class="course-desc">Hydrocarbons, reaction mechanisms, stoichiometry, redox titration, and chemical kinetics.</p>
+                <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+                  <small class="text-muted"><i class="bi bi-file-earmark-text me-1"></i>15 Notes</small>
+                  <a href="frontend/pages/login.html" class="btn btn-sm btn-outline-pill">Practice Quiz</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Biology -->
+          <div class="col-md-6 col-lg-3">
+            <div class="card-course">
+              <div class="course-thumb-wrap">
+                <img src="https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=600&q=80" alt="Biology">
+                <span class="course-level-badge">Senior 4 (S4)</span>
+              </div>
+              <div class="course-body">
+                <h3 class="course-title">Biology</h3>
+                <div class="course-teacher"><i class="bi bi-person me-1"></i>Mr. Karemera</div>
+                <p class="course-desc">Mendelian genetics, cellular respiration, human organ physiology, and lightweight illustrated diagrams.</p>
+                <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+                  <small class="text-muted"><i class="bi bi-file-earmark-text me-1"></i>20 Notes</small>
+                  <a href="frontend/pages/login.html" class="btn btn-sm btn-outline-pill">Practice Quiz</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer with SmartLearn, 2026, and Dan Kagame & Fatoumata Ndiaye -->
+      <footer class="footer-custom">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+          <div>
+            <strong>SmartLearn</strong> &copy; 2026 — <em>Learn anywhere, even on low data.</em>
+          </div>
+          <div class="text-center text-muted small">
+            Created by <strong>Dan Kagame</strong> & <strong>Fatoumata Ndiaye</strong>
+          </div>
+          <div class="d-flex gap-3">
+            <a href="frontend/pages/login.html" class="text-decoration-none text-muted">Login</a>
+            <a href="frontend/pages/register.html" class="text-decoration-none text-muted">Register</a>
+            <a href="https://github.com/Dankagame/Smart-learn-Aplication" target="_blank" class="text-decoration-none text-muted">
+              <i class="bi bi-github me-1"></i>GitHub
+            </a>
+          </div>
+        </div>
+      </footer>
+
+    </div>
+  </div>
+
+  <!-- Bootstrap 5.3 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Vanilla JavaScript & API Client Helper -->
+  <script src="frontend/js/api.js"></script>
+  <script src="frontend/js/main.js"></script>
+</body>
+</html>
