@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register · SmartLearn</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="bg-frame">
+
+  <!-- Shared Navbar -->
+  <nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm py-2">
+    <div class="container-xl">
+      <a class="brand-logo-wrap" href="../index.html">
+        <span class="brand-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </span>
+        <span>SmartLearn <small class="text-muted fs-6 fw-normal d-none d-sm-inline">· Learn anywhere, even on low data.</small></span>
+      </a>
+      <div class="ms-auto d-flex gap-2">
+        <a href="login.html" class="btn btn-outline-pill btn-sm">Login</a>
+        <a href="../index.html" class="btn btn-sm btn-outline-secondary rounded-pill">Home</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Split-Screen Auth Container -->
+  <div class="auth-split-container">
+    <div class="auth-split-card">
+      
+      <!-- Left Visual Side with Dedicated Education Photo -->
+      <div class="auth-visual-side" style="background-image: url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1000&q=80');">
+        <div class="auth-visual-overlay"></div>
+        <div class="auth-visual-content">
+          <span class="badge bg-white text-dark rounded-pill px-3 py-1 mb-2 fw-bold">Join the Community</span>
+          <div class="auth-visual-quote">
+            "Education is the most powerful weapon which you can use to change the world."
+          </div>
+          <small class="text-white-50">Create courses · Take practice quizzes · Track results</small>
+        </div>
+      </div>
+
+      <!-- Right Form Side -->
+      <div class="auth-form-side">
+        <div class="mb-4">
+          <h2 class="auth-title">Create Account</h2>
+          <p class="text-muted small">Sign up as a student or teacher to start learning.</p>
+        </div>
+
+        <!-- Feedback Alert Container -->
+        <div id="authAlert" class="d-none"></div>
+
+        <!-- Register Form (POST /auth/register with full_name, email, password, role) -->
+        <form id="registerForm" novalidate>
+
+          <!-- Role Selection (student or teacher) -->
+          <div class="mb-3">
+            <label for="roleSelect" class="form-label fw-semibold small text-muted">I am a</label>
+            <select class="form-select form-control-custom" id="roleSelect" required>
+              <option value="student" selected>Student</option>
+              <option value="teacher">Teacher</option>
+            </select>
+          </div>
+
+          <!-- Full Name -->
+          <div class="mb-3">
+            <label for="fullName" class="form-label fw-semibold small text-muted">Full Name</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light border-end-0 rounded-start-3">
+                <i class="bi bi-person-badge text-muted"></i>
+              </span>
+              <input 
+                type="text" 
+                class="form-control form-control-custom rounded-start-0" 
+                id="fullName" 
+                placeholder="e.g. Jean Damascene" 
+                required
+              >
+            </div>
+          </div>
+
+          <!-- Email -->
+          <div class="mb-3">
+            <label for="email" class="form-label fw-semibold small text-muted">Email Address</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light border-end-0 rounded-start-3">
+                <i class="bi bi-envelope text-muted"></i>
+              </span>
+              <input 
+                type="email" 
+                class="form-control form-control-custom rounded-start-0" 
+                id="email" 
+                placeholder="e.g. student@smartlearn.rw" 
+                required
+              >
+            </div>
+          </div>
+
+          <!-- Password (min 8 chars) -->
+          <div class="mb-3">
+            <label for="password" class="form-label fw-semibold small text-muted">Password (min. 8 characters)</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light border-end-0 rounded-start-3">
+                <i class="bi bi-lock text-muted"></i>
+              </span>
+              <input 
+                type="password" 
+                class="form-control form-control-custom rounded-start-0" 
+                id="password" 
+                placeholder="••••••••" 
+                minlength="8"
+                required
+              >
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn btn-auth-submit w-100 mt-2">
+            Create Account
+          </button>
+
+          <div class="text-center mt-4">
+            <p class="text-muted small mb-1">
+              Already have an account? 
+              <a href="login.html" class="fw-semibold text-decoration-none" style="color: var(--secondary-purple);">
+                Sign In
+              </a>
+            </p>
+            <a href="../index.html" class="text-decoration-none small text-muted">
+              <i class="bi bi-arrow-left me-1"></i>Back to Home
+            </a>
+          </div>
+
+        </form>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/main.js"></script>
+  <script src="../js/auth.js"></script>
+</body>
+</html>
