@@ -1,5 +1,3 @@
-"""User accounts for students and teachers."""
-
 import enum
 from datetime import datetime
 
@@ -29,9 +27,7 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    # Courses this user teaches (teachers only)
     courses: Mapped[list["Course"]] = relationship(back_populates="teacher")
-    # Quiz attempts this user submitted (students only)
     quiz_attempts: Mapped[list["QuizAttempt"]] = relationship(back_populates="student")
 
     def __repr__(self) -> str:

@@ -1,4 +1,3 @@
-
 from collections.abc import Generator
 
 from sqlalchemy import create_engine, text
@@ -23,11 +22,10 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 
 class Base(DeclarativeBase):
-    """All ORM models (User, Course, Quiz, ...) inherit from this class."""
+    pass
 
 
 def get_db() -> Generator[Session, None, None]:
-    """FastAPI dependency: give each request its own session, then close it."""
     db = SessionLocal()
     try:
         yield db
@@ -36,7 +34,6 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def check_db_connection() -> bool:
-    """Return True if the database answers a simple query."""
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
     return True

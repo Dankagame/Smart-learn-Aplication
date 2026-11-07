@@ -1,5 +1,3 @@
-"""Multiple-choice quizzes, their questions, and students' attempts."""
-
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
@@ -34,8 +32,8 @@ class Question(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     quiz_id: Mapped[int] = mapped_column(ForeignKey("quizzes.id", ondelete="CASCADE"))
     text: Mapped[str] = mapped_column(Text)
-    explanation: Mapped[str | None] = mapped_column(Text)  # feedback shown after submitting
-    position: Mapped[int] = mapped_column(Integer, default=0)  # order within the quiz
+    explanation: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, default=0)
 
     quiz: Mapped["Quiz"] = relationship(back_populates="questions")
     choices: Mapped[list["Choice"]] = relationship(
@@ -55,14 +53,12 @@ class Choice(Base):
 
 
 class QuizAttempt(Base):
-    """One submission of a quiz by a student, with the score."""
-
     __tablename__ = "quiz_attempts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     quiz_id: Mapped[int] = mapped_column(ForeignKey("quizzes.id", ondelete="CASCADE"))
     student_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    score: Mapped[int] = mapped_column(Integer)  # number of correct answers
+    score: Mapped[int] = mapped_column(Integer)
     total_questions: Mapped[int] = mapped_column(Integer)
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -76,8 +72,6 @@ class QuizAttempt(Base):
 
 
 class AttemptAnswer(Base):
-    """The choice a student picked for one question in an attempt."""
-
     __tablename__ = "attempt_answers"
 
     id: Mapped[int] = mapped_column(primary_key=True)

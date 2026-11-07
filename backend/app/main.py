@@ -1,15 +1,9 @@
-"""SmartLearn FastAPI application.
-
-Run from the backend/ folder:
-    uvicorn app.main:app --reload
-"""
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import models  # noqa: F401  (registers all tables with Base)
+from app import models
 from app.core.config import get_settings
 from app.core.database import Base, check_db_connection, engine
 
@@ -18,7 +12,6 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create any missing tables when the app starts.
     Base.metadata.create_all(bind=engine)
     yield
 
@@ -41,7 +34,6 @@ app.add_middleware(
 
 @app.get("/health", tags=["health"])
 def health_check() -> dict[str, str]:
-    """Confirm the API is running and can reach the database."""
     try:
         check_db_connection()
         database = "connected"

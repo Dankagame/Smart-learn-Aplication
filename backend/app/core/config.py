@@ -1,5 +1,3 @@
-"""Application settings, loaded from environment variables or backend/.env."""
-
 from functools import lru_cache
 
 from pydantic import field_validator

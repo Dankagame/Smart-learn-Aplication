@@ -1,5 +1,3 @@
-"""Courses (e.g. Mathematics - S6) and their learning materials."""
-
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, func
@@ -13,8 +11,8 @@ class Course(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(150))
-    subject: Mapped[str] = mapped_column(String(80), index=True)  # e.g. "Mathematics"
-    level: Mapped[str] = mapped_column(String(20), index=True)  # e.g. "S6"
+    subject: Mapped[str] = mapped_column(String(80), index=True)
+    level: Mapped[str] = mapped_column(String(20), index=True)
     description: Mapped[str | None] = mapped_column(Text)
     teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(
@@ -34,15 +32,13 @@ class Course(Base):
 
 
 class Material(Base):
-    """A note or a link that a teacher posts to a course."""
-
     __tablename__ = "materials"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"))
     title: Mapped[str] = mapped_column(String(150))
-    content: Mapped[str | None] = mapped_column(Text)  # written notes
-    link_url: Mapped[str | None] = mapped_column(String(500))  # external resource
+    content: Mapped[str | None] = mapped_column(Text)
+    link_url: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
