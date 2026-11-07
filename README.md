@@ -2,7 +2,7 @@
 
 > **Study smarter, even on low data.**
 
-SmartLearn is a lightweight, mobile-friendly learning platform. Secondary school students in Rwanda and across East Africa can use it to find curriculum-aligned study materials and practise with quizzes before their national exams. Teachers get a simple, low-cost way to share notes and quizzes with all of their students.
+SmartLearn is a lightweight **web application** that runs in any web browser, so there is no app to download or install. Secondary school students in Rwanda and across East Africa can use it to find curriculum-aligned study materials and practise with quizzes before their national exams. Teachers get a simple, low-cost way to share notes and quizzes with all of their students.
 
 ---
 
@@ -26,7 +26,7 @@ Students also have few ways to practise and check what they understand before an
 
 ## Our Solution
 
-SmartLearn gives students **one organized place** to find curriculum-aligned learning materials and practice quizzes, grouped by subject and level (for example, *Mathematics – S6*). The platform is built to be **lightweight and mobile-first**: pages are simple, load quickly, and use little data, so they work well on basic smartphones and slow networks.
+SmartLearn gives students **one organized place** to find curriculum-aligned learning materials and practice quizzes, grouped by subject and level (for example, *Mathematics – S6*). It is a **lightweight, responsive web application**: students and teachers open it in a web browser on a phone, tablet, or computer. Pages are simple, load quickly, and use little data, so the site works well even on basic smartphones and slow networks.
 
 - **Students** stop searching through chat groups. They browse materials by course, practise with quizzes, and get feedback right away.
 - **Teachers** publish a resource or quiz once and reach every student in the course, then use the results to see where students are struggling.
@@ -52,7 +52,7 @@ SmartLearn gives students **one organized place** to find curriculum-aligned lea
 | Layer | Technology | Why |
 |-------|------------|-----|
 | **Frontend** | HTML5 | Simple, standard page structure that loads quickly on any browser. |
-| | Bootstrap 5 | Responsive, mobile-first design that works well on small phone screens. |
+| | Bootstrap 5 | Responsive design, so the website adapts to phone, tablet, and computer screens. |
 | | JavaScript (vanilla) | Calls the backend API with `fetch()` and updates pages dynamically, with no heavy framework to download. |
 | **Backend** | Python 3.12+ | Readable, widely used language with a strong ecosystem. |
 | | FastAPI | Fast, modern framework for building REST APIs, with automatic interactive API docs. |
