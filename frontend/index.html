@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartLearn · Study Smarter, Even on Low Data</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- App Wrapper (Card Frame Matching Design) -->
+  <div class="app-wrapper">
+    <div class="container-xl px-0 main-canvas">
+      
+      <!-- Top Shared Navigation Bar -->
+      <nav class="navbar navbar-expand-lg navbar-custom">
+        <div class="container-fluid px-0">
+          <!-- Logo & Brand Name & Tagline -->
+          <a class="brand-logo-wrap" href="index.html">
+            <span class="brand-icon">
+              <!-- Geometric icon matching mockup -->
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+            </span>
+            <span>SmartLearn</span>
+          </a>
+
+          <!-- Mobile Hamburger -->
+          <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <!-- Nav Menu -->
+          <div class="collapse navbar-collapse justify-content-end" id="navbarContent">
+            <ul class="navbar-nav align-items-center mb-2 mb-lg-0 me-lg-3 gap-lg-1">
+              <li class="nav-item">
+                <a class="nav-link nav-link-custom active" aria-current="page" href="index.html">Accueil</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link nav-link-custom" href="#courses">Cours (Rwanda S6)</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link nav-link-custom" href="#about">À propos</a>
+              </li>
+              <li class="nav-item d-none d-xl-block">
+                <!-- Backend Status Badge -->
+                <span class="badge bg-light text-muted border px-2 py-1 ms-2" id="navBackendStatus" style="font-size: 0.75rem;">
+                  <i class="bi bi-circle-fill text-warning me-1"></i>Vérification Backend...
+                </span>
+              </li>
+            </ul>
+
+            <!-- Acceptance Criteria: Login and Register buttons in navigation -->
+            <div class="d-flex align-items-center gap-2 mt-2 mt-lg-0">
+              <a href="pages/login.html" class="btn btn-outline-pill">Connexion</a>
+              <a href="pages/register.html" class="btn btn-contact">Inscription</a>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Hero Section -->
+      <section class="hero-section">
+        <div class="row align-items-center g-4">
+          
+          <!-- Left Column: Content & CTAs -->
+          <div class="col-lg-6 col-md-12">
+            
+            <!-- Tagline Badge -->
+            <div class="mb-2">
+              <span class="badge bg-purple-subtle text-primary-emphasis px-3 py-2 rounded-pill fw-semibold">
+                <i class="bi bi-lightning-charge-fill me-1"></i>Study smarter, even on low data.
+              </span>
+            </div>
+
+            <h1 class="hero-title">
+              Brighten Your Future<br>
+              to Achieve More
+            </h1>
+
+            <p class="hero-subtitle">
+              Monitor your progress, tap into expert resources, and develop new skills at your own speed. Keep advancing in your educational journey!
+            </p>
+
+            <!-- Primary CTAs: "Get Started" navigates to pages/login.html -->
+            <div class="cta-group">
+              <a href="pages/login.html" class="btn btn-get-started" id="btnGetStarted">
+                Get Started <i class="bi bi-arrow-right ms-1"></i>
+              </a>
+              <a href="pages/register.html" class="btn btn-learn-more">
+                Créer un compte
+              </a>
+            </div>
+
+            <!-- Social Proof -->
+            <div class="social-proof">
+              <div class="avatar-stack">
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&q=80" alt="Student 1">
+                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=80&q=80" alt="Student 2">
+                <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=80&q=80" alt="Student 3">
+              </div>
+              <div>
+                <div class="proof-number">5.1K</div>
+                <div class="proof-label">Students all over the world</div>
+              </div>
+            </div>
+
+            <!-- Secondary Outline Buttons -->
+            <div class="secondary-links">
+              <a href="pages/login.html" class="btn-outline-pill">Book Your Seat</a>
+              <a href="#about" class="btn-outline-pill">See Our Journey</a>
+            </div>
+
+            <!-- Bottom Stats Row -->
+            <div class="stats-row">
+              <div class="stat-item">
+                <span class="stat-number">6409</span>
+                <span class="stat-label">Succes Story</span>
+              </div>
+              <div class="stats-divider"></div>
+              <div class="stat-item">
+                <span class="stat-number">54.749</span>
+                <span class="stat-label">Hours Tutored</span>
+              </div>
+              <div class="stats-divider"></div>
+              <div class="stat-item">
+                <span class="stat-number">124</span>
+                <span class="stat-label">Expert Instructor</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right Column: Visual Layout with Grid, Blob and Student -->
+          <div class="col-lg-6 col-md-12">
+            <div class="hero-visual-container">
+              <!-- Background grid -->
+              <div class="grid-background"></div>
+
+              <!-- Organic purple blob shape -->
+              <div class="blob-shape"></div>
+
+              <!-- Student Image pointing to the left holding binder -->
+              <img src="assets/images/hero-student.png" alt="SmartLearn Student" class="hero-student-img img-fluid">
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Course & Curriculum Explorer Section -->
+      <section class="section-courses" id="courses">
+        <div class="row mb-4 align-items-end">
+          <div class="col-md-8">
+            <span class="section-tag">Programme Scolaire Rwanda</span>
+            <h2 class="section-heading">Matières & Préparation aux Examens Nationaux</h2>
+            <p class="text-muted mb-0">Ressources organisées et optimisées pour les smartphones avec connexion à débit réduit.</p>
+          </div>
+          <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <a href="pages/login.html" class="btn btn-outline-pill">Tous les cours →</a>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <!-- Course Card 1: Mathematics -->
+          <div class="col-md-6 col-lg-3">
+            <div class="card-course">
+              <div class="course-icon-badge badge-math">
+                <i class="bi bi-calculator"></i>
+              </div>
+              <span class="course-level">Senior 6 (S6)</span>
+              <h3 class="course-title">Mathématiques</h3>
+              <p class="course-desc">Calcul différentiel, vecteurs, trigonométrie et annales corrigées étape par étape.</p>
+              <div class="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
+                <small class="text-muted"><i class="bi bi-file-earmark-text me-1"></i> 24 Fiches</small>
+                <a href="pages/login.html" class="btn btn-sm btn-outline-pill">Quiz S6</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Course Card 2: Physics -->
+          <div class="col-md-6 col-lg-3">
+            <div class="card-course">
+              <div class="course-icon-badge badge-physics">
+                <i class="bi bi-lightning-charge"></i>
+              </div>
+              <span class="course-level">Senior 6 (S6)</span>
+              <h3 class="course-title">Physique</h3>
+              <p class="course-desc">Mécanique céleste, optique ondulatoire et électromagnétisme avec résumés ultra légers.</p>
+              <div class="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
+                <small class="text-muted"><i class="bi bi-file-earmark-text me-1"></i> 18 Fiches</small>
+                <a href="pages/login.html" class="btn btn-sm btn-outline-pill">Quiz S6</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Course Card 3: Chemistry -->
+          <div class="col-md-6 col-lg-3">
+            <div class="card-course">
+              <div class="course-icon-badge badge-chem">
+                <i class="bi bi-radioactive"></i>
+              </div>
+              <span class="course-level">Senior 5 (S5)</span>
+              <h3 class="course-title">Chimie</h3>
+              <p class="course-desc">Chimie organique, stœchiométrie, réactions redox et tableaux récapitulatifs.</p>
+              <div class="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
+                <small class="text-muted"><i class="bi bi-file-earmark-text me-1"></i> 15 Fiches</small>
+                <a href="pages/login.html" class="btn btn-sm btn-outline-pill">Quiz S5</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Course Card 4: Biology -->
+          <div class="col-md-6 col-lg-3">
+            <div class="card-course">
+              <div class="course-icon-badge badge-bio">
+                <i class="bi bi-heart-pulse"></i>
+              </div>
+              <span class="course-level">Senior 4 (S4)</span>
+              <h3 class="course-title">Biologie</h3>
+              <p class="course-desc">Génétique, physiologie humaine et schémas vectoriels pour un chargement instantané.</p>
+              <div class="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
+                <small class="text-muted"><i class="bi bi-file-earmark-text me-1"></i> 20 Fiches</small>
+                <a href="pages/login.html" class="btn btn-sm btn-outline-pill">Quiz S4</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="footer-custom" id="about">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+          <div>
+            <strong>SmartLearn</strong> &copy; 2026 — <em>Study smarter, even on low data.</em>
+          </div>
+          <div class="d-flex gap-3">
+            <a href="pages/login.html" class="text-decoration-none text-muted">Connexion</a>
+            <a href="pages/register.html" class="text-decoration-none text-muted">Inscription</a>
+            <a href="https://github.com/Dankagame/Smart-learn-Aplication" target="_blank" class="text-decoration-none text-muted">
+              <i class="bi bi-github me-1"></i>GitHub
+            </a>
+          </div>
+        </div>
+      </footer>
+
+    </div>
+  </div>
+
+  <!-- Bootstrap 5.3 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Vanilla JavaScript & API Client Helper -->
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    // Check and display backend connection health in navbar
+    document.addEventListener('DOMContentLoaded', async () => {
+      const badge = document.getElementById('navBackendStatus');
+      if (badge && window.SmartLearnAPI) {
+        const isConnected = await window.SmartLearnAPI.checkBackendHealth();
+        if (isConnected) {
+          badge.innerHTML = '<i class="bi bi-circle-fill text-success me-1"></i>API FastAPI Connectée';
+          badge.className = 'badge bg-success-subtle text-success border border-success-subtle px-2 py-1 ms-2';
+        } else {
+          badge.innerHTML = '<i class="bi bi-circle-fill text-secondary me-1"></i>Frontend Autonome';
+          badge.className = 'badge bg-light text-muted border px-2 py-1 ms-2';
+        }
+      }
+    });
+  </script>
+</body>
+</html>
