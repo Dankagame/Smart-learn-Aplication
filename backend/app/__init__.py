@@ -1,1 +1,0 @@
-"""SmartLearn backend application package."""
