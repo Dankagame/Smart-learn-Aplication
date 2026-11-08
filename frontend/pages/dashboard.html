@@ -64,7 +64,7 @@
         </div>
 
         <!-- Role Toggle Pills (Student / Teacher View) -->
-        <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-25 text-center">
+        <div id="roleToggleContainer" class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-25 text-center">
           <div class="small text-white-50 mb-1">Switch View</div>
           <div class="btn-group" role="group">
             <button type="button" class="btn btn-sm btn-light active rounded-pill px-3 fw-bold" id="viewStudentBtn">Student View</button>
@@ -160,9 +160,12 @@
           <div class="col-6 col-md-3">
             <select class="form-select border-0 bg-light" id="filterLevelSelect">
               <option value="all" selected>All Levels</option>
-              <option value="S6">Senior 6 (S6)</option>
-              <option value="S5">Senior 5 (S5)</option>
+              <option value="S1">Senior 1 (S1)</option>
+              <option value="S2">Senior 2 (S2)</option>
+              <option value="S3">Senior 3 (S3)</option>
               <option value="S4">Senior 4 (S4)</option>
+              <option value="S5">Senior 5 (S5)</option>
+              <option value="S6">Senior 6 (S6)</option>
             </select>
           </div>
 
@@ -246,9 +249,12 @@
                 <div class="col-6">
                   <label class="form-label small fw-semibold text-muted">Grade Level</label>
                   <select class="form-select form-control-custom" id="newCourseLevel" required>
-                    <option value="S6">Senior 6 (S6)</option>
-                    <option value="S5">Senior 5 (S5)</option>
+                    <option value="S1">Senior 1 (S1)</option>
+                    <option value="S2">Senior 2 (S2)</option>
+                    <option value="S3">Senior 3 (S3)</option>
                     <option value="S4">Senior 4 (S4)</option>
+                    <option value="S5">Senior 5 (S5)</option>
+                    <option value="S6" selected>Senior 6 (S6)</option>
                   </select>
                 </div>
               </div>
@@ -384,23 +390,46 @@
     // State variables
     let allCourses = [];
     let currentQuizData = null;
+    let activeUser = null;
 
-    // Check Auth Token on load (Issue 15: Redirects to login if user has no token)
+    // Check Auth Token & verify with backend (Issue 15 & PR #27)
     document.addEventListener('DOMContentLoaded', async () => {
-      // Check Auth Token on load (Issue 15: Redirects to login if user has no token)
       const token = localStorage.getItem('smartlearn_token');
       if (!token) {
         window.location.href = 'login.html';
         return;
       }
 
-      const activeUser = window.SmartLearnAPI && window.SmartLearnAPI.auth 
-        ? window.SmartLearnAPI.auth.getCurrentUser() 
-        : null;
+      // Check the token with server on page load (GET /auth/me)
+      try {
+        const profileRes = await window.SmartLearnAPI.auth.getProfile();
+        if (!profileRes.success || profileRes.status === 401) {
+          // Expired or invalid token: clean up and redirect to login
+          window.SmartLearnAPI.auth.logout();
+          return;
+        }
+        activeUser = profileRes.data || window.SmartLearnAPI.auth.getCurrentUser();
+        localStorage.setItem('smartlearn_user', JSON.stringify(activeUser));
+      } catch (err) {
+        console.warn('Profile fetch error, falling back to cached user:', err);
+        activeUser = window.SmartLearnAPI.auth.getCurrentUser() || { role: 'student' };
+      }
 
-      if (activeUser) {
-        document.getElementById('userNameDisplay').textContent = activeUser.full_name || activeUser.name || activeUser.email || 'Student';
-        document.getElementById('userRoleDisplay').textContent = activeUser.role === 'teacher' ? 'Teacher (Instructor)' : 'Student (S6)';
+      // Role-based UI rendering (PR #27 & PR #28)
+      const isTeacher = activeUser && activeUser.role === 'teacher';
+      const roleToggle = document.getElementById('roleToggleContainer');
+
+      if (isTeacher) {
+        document.getElementById('userNameDisplay').textContent = activeUser.full_name || activeUser.email || 'Teacher';
+        document.getElementById('userRoleDisplay').textContent = 'Teacher (Instructor)';
+        if (roleToggle) roleToggle.classList.remove('d-none');
+        await loadTeacherCourses(activeUser.id);
+      } else {
+        document.getElementById('userNameDisplay').textContent = activeUser.full_name || activeUser.email || 'Student';
+        document.getElementById('userRoleDisplay').textContent = 'Student (S1 - S6)';
+        if (roleToggle) roleToggle.classList.add('d-none');
+        document.getElementById('studentSection').classList.remove('d-none');
+        document.getElementById('teacherSection').classList.add('d-none');
       }
 
       // Logout handler
@@ -408,7 +437,7 @@
         window.SmartLearnAPI.auth.logout();
       });
 
-      // Role switcher toggles
+      // Role switcher toggles (for teachers)
       document.getElementById('viewStudentBtn').addEventListener('click', () => {
         document.getElementById('studentSection').classList.remove('d-none');
         document.getElementById('teacherSection').classList.add('d-none');
@@ -423,7 +452,7 @@
         document.getElementById('viewStudentBtn').className = 'btn btn-sm btn-outline-light rounded-pill px-3 fw-bold';
       });
 
-      // Load dynamic courses and results
+      // Load courses from backend with server-side filters & user quiz history
       await loadCourses();
       await loadUserResults();
 
@@ -431,83 +460,27 @@
       document.getElementById('filterSubjectSelect').addEventListener('change', applyFilters);
       document.getElementById('filterLevelSelect').addEventListener('change', applyFilters);
       document.getElementById('searchCourseInput').addEventListener('input', applyFilters);
-      document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+      document.getElementById('resetFiltersBtn').addEventListener('click', async () => {
         document.getElementById('filterSubjectSelect').value = 'all';
         document.getElementById('filterLevelSelect').value = 'all';
         document.getElementById('searchCourseInput').value = '';
-        applyFilters();
+        await loadCourses();
       });
 
-      // Setup teacher forms
+      // Setup teacher course management forms
       setupTeacherForms();
     });
 
-    // 1. Load Courses from API (Issue 15)
-    async function loadCourses() {
-      const res = await window.SmartLearnAPI.courses.list();
+    // 1. Load Courses from API with server-side filtering (PR #28)
+    async function loadCourses(filters = {}) {
+      const countDisplay = document.getElementById('coursesCountDisplay');
+      if (countDisplay) countDisplay.textContent = 'Loading courses...';
+
+      const res = await window.SmartLearnAPI.courses.list(filters);
       if (res.success && Array.isArray(res.data)) {
         allCourses = res.data;
       } else {
-        // Fallback demo courses
-        allCourses = [
-          {
-            id: 1,
-            title: "Advanced Mathematics",
-            subject: "Mathematics",
-            level: "S6",
-            teacher: "Mr. Habimana",
-            notesCount: 24,
-            description: "Calculus, vectors in 3D, trigonometry, and national past exam papers with step-by-step solutions.",
-            image: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=600&q=80",
-            materials: [
-              { id: 101, title: "Differential Calculus Summary", type: "PDF", size: "180 KB" },
-              { id: 102, title: "3D Vectors & Matrices Cheat Sheet", type: "PDF", size: "210 KB" },
-              { id: 103, title: "National Exam 2024 Solved Paper", type: "PDF", size: "350 KB" }
-            ]
-          },
-          {
-            id: 2,
-            title: "Modern Physics",
-            subject: "Physics",
-            level: "S6",
-            teacher: "Dr. Uwase",
-            notesCount: 18,
-            description: "Classical mechanics, wave optics, electromagnetic induction, and experimental problem sets.",
-            image: "https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=600&q=80",
-            materials: [
-              { id: 201, title: "Electromagnetism Formulas & Laws", type: "PDF", size: "145 KB" },
-              { id: 202, title: "Quantum & Atomic Physics Review", type: "PDF", size: "190 KB" }
-            ]
-          },
-          {
-            id: 3,
-            title: "Organic & Physical Chemistry",
-            subject: "Chemistry",
-            level: "S5",
-            teacher: "Mrs. Mukamana",
-            notesCount: 15,
-            description: "Hydrocarbons, reaction mechanisms, stoichiometry, redox titration, and chemical kinetics.",
-            image: "https://images.unsplash.com/photo-1603126857599-f6e157fa2fe6?auto=format&fit=crop&w=600&q=80",
-            materials: [
-              { id: 301, title: "Organic Functional Groups Chart", type: "PDF", size: "120 KB" },
-              { id: 302, title: "Reaction Mechanisms Walkthrough", type: "PDF", size: "230 KB" }
-            ]
-          },
-          {
-            id: 4,
-            title: "General & Cellular Biology",
-            subject: "Biology",
-            level: "S4",
-            teacher: "Mr. Karemera",
-            notesCount: 20,
-            description: "Mendelian genetics, cellular respiration, human organ physiology, and lightweight illustrated diagrams.",
-            image: "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=600&q=80",
-            materials: [
-              { id: 401, title: "Cell Structure & Organelles Summary", type: "PDF", size: "95 KB" },
-              { id: 402, title: "Genetics & Punnett Squares Guide", type: "PDF", size: "160 KB" }
-            ]
-          }
-        ];
+        allCourses = [];
       }
 
       renderCourses(allCourses);
@@ -537,11 +510,11 @@
           <div class="card-course">
             <div class="course-thumb-wrap">
               <img src="${c.image || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80'}" alt="${c.title}">
-              <span class="course-level-badge">Senior ${c.level ? c.level.replace('S', '') : '6'} (${c.level || 'S6'})</span>
+              <span class="course-level-badge">${c.level || 'S6'}</span>
             </div>
             <div class="course-body">
               <h4 class="course-title">${c.title}</h4>
-              <div class="course-teacher"><i class="bi bi-person me-1"></i>${c.teacher || 'Instructor'}</div>
+              <div class="course-teacher"><i class="bi bi-person me-1"></i>${c.teacher_name || c.teacher || 'Instructor'}</div>
               <p class="course-desc">${c.description || 'Curriculum notes and exam exercises.'}</p>
               
               <div class="mt-auto pt-3 border-top d-flex flex-column gap-2">
@@ -564,179 +537,250 @@
       `).join('');
     }
 
-    // Apply Filter Dropdowns & Search (Issue 15)
-    function applyFilters() {
-      const subject = document.getElementById('filterSubjectSelect').value.toLowerCase();
-      const level = document.getElementById('filterLevelSelect').value.toLowerCase();
+    // Apply Filter Dropdowns on Server (PR #28)
+    async function applyFilters() {
+      const subject = document.getElementById('filterSubjectSelect').value;
+      const level = document.getElementById('filterLevelSelect').value;
       const query = document.getElementById('searchCourseInput').value.toLowerCase().trim();
 
-      const filtered = allCourses.filter(c => {
-        const matchesSubject = subject === 'all' || (c.subject && c.subject.toLowerCase() === subject);
-        const matchesLevel = level === 'all' || (c.level && c.level.toLowerCase() === level);
-        const matchesQuery = !query || 
-          (c.title && c.title.toLowerCase().includes(query)) ||
-          (c.description && c.description.toLowerCase().includes(query)) ||
-          (c.teacher && c.teacher.toLowerCase().includes(query));
+      const params = {};
+      if (subject && subject.toLowerCase() !== 'all') params.subject = subject;
+      if (level && level.toLowerCase() !== 'all') params.level = level;
 
-        return matchesSubject && matchesLevel && matchesQuery;
-      });
+      await loadCourses(params);
 
-      renderCourses(filtered);
+      // Client-side text search within filtered results
+      if (query) {
+        const filtered = allCourses.filter(c => {
+          const tName = c.teacher_name || c.teacher || '';
+          return (c.title && c.title.toLowerCase().includes(query)) ||
+            (c.description && c.description.toLowerCase().includes(query)) ||
+            tName.toLowerCase().includes(query);
+        });
+        renderCourses(filtered);
+      }
     }
 
     // 2. Open Materials Drawer Modal (Issue 15)
     function openMaterialsModal(courseId) {
       const course = allCourses.find(c => c.id === courseId) || allCourses[0];
+      if (!course) return;
       document.getElementById('materialsModalTitle').textContent = `${course.title} · Notes`;
       
       const listContainer = document.getElementById('materialsListContainer');
       const items = course.materials && course.materials.length > 0
         ? course.materials
         : [
-            { title: "Core Syllabus Summary", type: "PDF", size: "120 KB" },
-            { title: "Past National Exam Questions", type: "PDF", size: "280 KB" }
+            { id: 1, title: "Syllabus Key Concepts & Chapter Summary", type: "PDF", size: "180 KB" },
+            { id: 2, title: "Class Revision Notes & Worked Examples", type: "PDF", size: "220 KB" },
+            { id: 3, title: "National Examination Practice Problems", type: "PDF", size: "340 KB" }
           ];
 
       listContainer.innerHTML = items.map(m => `
-        <div class="d-flex justify-content-between align-items-center p-2 rounded-3 border bg-light">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-file-earmark-pdf-fill text-danger fs-4"></i>
+        <div class="material-item">
+          <div class="d-flex align-items-center gap-3">
+            <div class="rounded-3 p-2 bg-light text-primary">
+              <i class="bi bi-file-earmark-pdf fs-4"></i>
+            </div>
             <div>
-              <div class="fw-semibold small text-dark">${m.title}</div>
-              <small class="text-muted">${m.type || 'PDF'} · ${m.size || '150 KB'}</small>
+              <div class="fw-semibold text-dark">${m.title}</div>
+              <div class="text-muted small">${m.type || 'PDF'} · ${m.size || '250 KB'} · Offline Ready</div>
             </div>
           </div>
-          <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="alert('Downloading ${m.title} (optimized for low data usage).')">
-            <i class="bi bi-download"></i>
+          <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="alert('Downloading low-data offline note: ${m.title}')">
+            <i class="bi bi-download me-1"></i>Download
           </button>
         </div>
       `).join('');
 
-      const modal = new bootstrap.Modal(document.getElementById('materialsModal'));
+      const modalEl = document.getElementById('materialsModal');
+      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
       modal.show();
     }
 
-    // 3. Start Quiz with dynamic questions & radio buttons (Issue 16)
+    // 3. Interactive Practice Quiz Simulator (PR #29: Backend Quizzes Integration)
     async function startQuiz(courseId) {
-      const quizRes = await window.SmartLearnAPI.quizzes.getById(courseId);
-      currentQuizData = (quizRes.success && quizRes.data) ? quizRes.data : {
-        id: courseId,
-        title: courseId === 2 ? "Senior 6 Physics Quiz: Waves & Electromagnetism" : "Senior 6 Mathematics Quiz: Derivatives & Vectors",
-        questions: [
-          {
-            id: 1,
-            question: "What is the derivative of f(x) = 3x² + 4x - 5?",
-            options: ["6x + 4", "3x + 4", "6x² + 4", "6x - 5"]
-          },
-          {
-            id: 2,
-            question: "What is the dot product of vectors u = (2, 3) and v = (4, -1)?",
-            options: ["5", "11", "8", "-5"]
-          },
-          {
-            id: 3,
-            question: "Evaluate the integral ∫ 2x dx:",
-            options: ["x² + C", "2x² + C", "x + C", "2 + C"]
+      const course = allCourses.find(c => c.id === courseId) || allCourses[0] || { title: 'Practice Course' };
+      document.getElementById('quizModalTitle').textContent = `${course.title} · Practice Quiz`;
+
+      let backendQuiz = null;
+      try {
+        const listRes = await window.SmartLearnAPI.quizzes.getByCourse(courseId);
+        if (listRes.success && Array.isArray(listRes.data) && listRes.data.length > 0) {
+          const firstQuiz = listRes.data[0];
+          const quizRes = await window.SmartLearnAPI.quizzes.getById(firstQuiz.id);
+          if (quizRes.success && quizRes.data) {
+            backendQuiz = quizRes.data;
           }
-        ]
-      };
+        }
+      } catch (err) {
+        console.warn('Backend quiz load error:', err);
+      }
 
-      document.getElementById('quizModalTitle').textContent = currentQuizData.title;
-      document.getElementById('quizQuestionBox').classList.remove('d-none');
-      document.getElementById('quizResultBox').classList.add('d-none');
+      if (backendQuiz && backendQuiz.questions && backendQuiz.questions.length > 0) {
+        currentQuizData = {
+          quizId: backendQuiz.id,
+          courseId: course.id,
+          courseTitle: course.title,
+          questions: backendQuiz.questions.map(q => ({
+            id: q.id,
+            text: q.text,
+            options: (q.options || []).map(opt => ({
+              id: opt.id,
+              text: opt.text
+            }))
+          }))
+        };
+      } else {
+        currentQuizData = {
+          courseId: course.id,
+          courseTitle: course.title,
+          questions: [
+            {
+              id: 1,
+              text: `In ${course.subject || 'this course'}, what is the primary fundamental principle?`,
+              options: [
+                { id: 1, text: "Conservation of energy and systemic equilibrium" },
+                { id: 2, text: "Random exponential divergence" },
+                { id: 3, text: "Constant static acceleration without friction" },
+                { id: 4, text: "None of the above" }
+              ],
+              correctId: 1,
+              explanation: "The fundamental laws require energy balance and equilibrium in stable conditions."
+            },
+            {
+              id: 2,
+              text: "Which method is most effective for solving examination questions on this topic?",
+              options: [
+                { id: 1, text: "Memorizing answers without formulas" },
+                { id: 2, text: "Breaking down into given variables, formulas, and units" },
+                { id: 3, text: "Skipping straight to final estimations" },
+                { id: 4, text: "Ignoring initial boundary values" }
+              ],
+              correctId: 2,
+              explanation: "Rigorous step-by-step problem decomposition prevents algebraic and unit conversion errors."
+            }
+          ]
+        };
+      }
 
-      const qContainer = document.getElementById('quizQuestionsList');
-      qContainer.innerHTML = currentQuizData.questions.map((q, qIdx) => `
-        <div class="card p-3 border rounded-3 bg-light question-card" data-qidx="${qIdx}">
-          <p class="fw-bold mb-3 text-dark">
-            <span class="badge bg-secondary me-2">Q${qIdx + 1}</span>
-            ${q.question}
-          </p>
+      const container = document.getElementById('quizQuestionsContainer');
+      container.innerHTML = currentQuizData.questions.map((q, idx) => `
+        <div class="card border rounded-4 p-3 mb-3 bg-light">
+          <div class="fw-bold mb-2">Question ${idx + 1}: ${q.text}</div>
           <div class="d-flex flex-column gap-2">
-            ${q.options.map((opt, optIdx) => `
-              <label class="quiz-option-btn" for="q_${qIdx}_opt_${optIdx}">
-                <input class="form-check-input me-2" type="radio" name="question_${qIdx}" id="q_${qIdx}_opt_${optIdx}" value="${optIdx}" required>
-                <span>${opt}</span>
+            ${q.options.map((opt) => `
+              <label class="d-flex align-items-center gap-2 p-2 bg-white rounded-3 border cursor-pointer">
+                <input type="radio" name="quiz_q_${q.id}" value="${opt.id}" required>
+                <span>${opt.text}</span>
               </label>
             `).join('')}
           </div>
         </div>
       `).join('');
 
-      // Setup Submit Event
-      const form = document.getElementById('activeQuizForm');
-      form.onsubmit = async (e) => {
-        e.preventDefault();
-        const answers = {};
-        currentQuizData.questions.forEach((_, idx) => {
-          const selected = form.querySelector(`input[name="question_${idx}"]:checked`);
-          if (selected) answers[idx] = selected.value;
-        });
+      document.getElementById('quizFeedbackCard').classList.add('d-none');
+      document.getElementById('btnSubmitQuiz').classList.remove('d-none');
 
-        // Submit to API
-        const submitRes = await window.SmartLearnAPI.quizzes.submit(currentQuizData.id, answers);
-        displayQuizResult(submitRes);
-      };
-
-      const modal = new bootstrap.Modal(document.getElementById('quizModal'));
+      const modalEl = document.getElementById('quizModal');
+      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
       modal.show();
     }
 
-    // Display instant quiz score and feedback (Issue 16 & 10)
-    function displayQuizResult(res) {
-      document.getElementById('quizQuestionBox').classList.add('d-none');
-      const resultBox = document.getElementById('quizResultBox');
-      resultBox.classList.remove('d-none');
+    // Submit Quiz Handler with Instant Scoring
+    document.getElementById('quizForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!currentQuizData) return;
 
-      const data = res.data || { score: 3, total: 3, percentage: 100, feedback: [] };
-      document.getElementById('quizResultScore').textContent = `Score: ${data.score} / ${data.total} (${data.percentage}%)`;
-      
-      const icon = document.getElementById('quizResultIcon');
-      if (data.percentage >= 70) {
-        icon.innerHTML = `<i class="bi bi-trophy-fill text-warning fs-1"></i>`;
-        document.getElementById('quizResultMessage').textContent = "Excellent work! Your answers are recorded in your performance history.";
-      } else {
-        icon.innerHTML = `<i class="bi bi-bookmark-check-fill text-info fs-1"></i>`;
-        document.getElementById('quizResultMessage').textContent = "Good practice! Review the explanations below to strengthen your weak areas.";
-      }
+      let score = 0;
+      const total = currentQuizData.questions.length;
+      const reviewDetails = [];
 
-      // Breakdown explanations
-      const breakdown = document.getElementById('quizFeedbackBreakdown');
-      if (data.feedback && data.feedback.length > 0) {
-        breakdown.innerHTML = `<h6 class="fw-bold mb-3">Answer Review & Explanations:</h6>` + data.feedback.map((f, i) => `
-          <div class="mb-3 pb-2 border-bottom">
-            <div class="d-flex align-items-center gap-2 mb-1">
-              <span class="badge ${f.isCorrect ? 'bg-success' : 'bg-danger'}">${f.isCorrect ? 'Correct' : 'Incorrect'}</span>
-              <strong class="small">Question ${i + 1}: ${f.question}</strong>
-            </div>
-            <div class="small text-muted mb-1">Explanation: ${f.explanation || 'Reviewed according to national curriculum syllabus.'}</div>
+      currentQuizData.questions.forEach((q) => {
+        const selected = document.querySelector(`input[name="quiz_q_${q.id}"]:checked`);
+        const val = selected ? parseInt(selected.value, 10) : -1;
+        const isCorrect = val === q.correct;
+        if (isCorrect) score += 1;
+        reviewDetails.push({
+          question: q.text,
+          userAnswer: val !== -1 ? q.options[val] : "Not answered",
+          correctAnswer: q.options[q.correct],
+          isCorrect,
+          explanation: q.explanation
+        });
+      });
+
+      const percentage = Math.round((score / total) * 100);
+
+      // Render instant score feedback
+      const feedbackCard = document.getElementById('quizFeedbackCard');
+      const scoreBadge = document.getElementById('quizScoreBadge');
+      const reviewList = document.getElementById('quizReviewList');
+
+      scoreBadge.textContent = `${score} / ${total} (${percentage}%)`;
+      scoreBadge.className = `badge ${percentage >= 60 ? 'bg-success' : 'bg-warning'} fs-6 px-3 py-2 rounded-pill`;
+
+      reviewList.innerHTML = reviewDetails.map((r, i) => `
+        <div class="p-3 mb-2 rounded-3 border ${r.isCorrect ? 'bg-success-subtle border-success' : 'bg-danger-subtle border-danger'}">
+          <div class="fw-semibold">${i + 1}. ${r.question}</div>
+          <div class="small mt-1">
+            <strong>Your answer:</strong> ${r.userAnswer} ${r.isCorrect ? '✅' : '❌'}
           </div>
-        `).join('');
-      } else {
-        breakdown.innerHTML = `<p class="small text-success mb-0"><i class="bi bi-check-circle me-1"></i>All questions answered with complete accuracy!</p>`;
+          ${!r.isCorrect ? `<div class="small text-success"><strong>Correct:</strong> ${r.correctAnswer}</div>` : ''}
+          <div class="small text-muted mt-1"><em>${r.explanation}</em></div>
+        </div>
+      `).join('');
+
+      feedbackCard.classList.remove('d-none');
+      document.getElementById('btnSubmitQuiz').classList.add('d-none');
+
+      // Add to results table
+      addQuizResultToTable({
+        quizTitle: currentQuizData.courseTitle + ' Quiz',
+        score: score,
+        total: total,
+        percentage: percentage,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        status: percentage >= 60 ? 'Passed' : 'Needs Review'
+      });
+    });
+
+    // 4. Student Quiz Results Tracking
+    function loadUserResults() {
+      // Load any stored attempts from localStorage
+      const stored = localStorage.getItem('smartlearn_results');
+      if (stored) {
+        try {
+          const results = JSON.parse(stored);
+          renderResultsTable(results);
+          return;
+        } catch { }
       }
 
-      // Refresh attempts table
-      loadUserResults();
+      // Default sample results
+      const initialResults = [
+        { quizTitle: "Advanced Mathematics - Calculus Quiz 1", score: 5, total: 5, percentage: 100, date: "Nov 05, 2026", status: "Passed" },
+        { quizTitle: "Modern Physics - Mechanics & Vectors", score: 4, total: 5, percentage: 80, date: "Nov 03, 2026", status: "Passed" }
+      ];
+      renderResultsTable(initialResults);
     }
 
-    // 4. Load Results History (Issue 17: loads attempts from GET /me/results)
-    async function loadUserResults() {
-      const res = await window.SmartLearnAPI.http.get('/me/results');
-      const tableBody = document.getElementById('resultsTableBody');
-      if (!tableBody) return;
-
-      const results = (res.success && Array.isArray(res.data)) ? res.data : [
-        { quizTitle: "Mathematics S6: Calculus Basics", score: 3, total: 3, percentage: 100, date: "2026-11-06", status: "Passed" },
-        { quizTitle: "Physics S6: Wave Mechanics", score: 2, total: 2, percentage: 100, date: "2026-11-05", status: "Passed" }
-      ];
-
-      if (results.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No quiz attempts yet. Start practicing with any quiz above!</td></tr>`;
-        return;
+    function addQuizResultToTable(result) {
+      let results = [];
+      const stored = localStorage.getItem('smartlearn_results');
+      if (stored) {
+        try { results = JSON.parse(stored); } catch { results = []; }
       }
+      results.unshift(result);
+      localStorage.setItem('smartlearn_results', JSON.stringify(results));
+      renderResultsTable(results);
+    }
 
-      tableBody.innerHTML = results.map(r => `
+    function renderResultsTable(results) {
+      const tbody = document.getElementById('resultsTableBody');
+      if (!tbody) return;
+
+      tbody.innerHTML = results.map(r => `
         <tr>
           <td class="fw-semibold text-dark">${r.quizTitle}</td>
           <td>${r.score} / ${r.total}</td>
@@ -747,8 +791,85 @@
       `).join('');
     }
 
-    // 5. Setup Teacher Course & Material Forms (Issue 18 & 19)
+    // 5. Teacher Course Management (PR #28: Create, Edit, Delete, Filter by teacher_id)
+    async function loadTeacherCourses(teacherId) {
+      const container = document.getElementById('myCoursesTableBody');
+      const badge = document.getElementById('myCoursesCountBadge');
+      if (!container) return;
+
+      try {
+        const res = await window.SmartLearnAPI.courses.list({ teacher_id: teacherId });
+        const courses = (res.success && Array.isArray(res.data)) ? res.data : [];
+
+        if (badge) badge.textContent = `${courses.length} Course${courses.length === 1 ? '' : 's'}`;
+
+        if (courses.length === 0) {
+          container.innerHTML = `
+            <tr>
+              <td colspan="5" class="text-center text-muted py-4">You have not created any courses yet. Use the form above to publish your first course.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        container.innerHTML = courses.map(c => `
+          <tr>
+            <td class="fw-semibold text-dark">${c.title}</td>
+            <td><span class="badge bg-light text-secondary border">${c.subject}</span></td>
+            <td><span class="badge bg-primary-subtle text-primary border">${c.level}</span></td>
+            <td class="text-muted small">${c.created_at ? new Date(c.created_at).toLocaleDateString() : 'Active'}</td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-primary rounded-pill me-1" onclick="openEditCourseModal(${c.id})">
+                <i class="bi bi-pencil me-1"></i>Edit
+              </button>
+              <button class="btn btn-sm btn-outline-danger rounded-pill" onclick="deleteCourse(${c.id})">
+                <i class="bi bi-trash me-1"></i>Delete
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `
+          <tr>
+            <td colspan="5" class="text-center text-danger py-4">Failed to load your courses. Please try again.</td>
+          </tr>
+        `;
+      }
+    }
+
+    window.openEditCourseModal = function(id) {
+      const course = allCourses.find(c => c.id === id);
+      if (!course) return;
+
+      document.getElementById('editCourseId').value = course.id;
+      document.getElementById('editCourseTitle').value = course.title || '';
+      document.getElementById('editCourseSubject').value = course.subject || 'Mathematics';
+      document.getElementById('editCourseLevel').value = course.level || 'S6';
+      document.getElementById('editCourseDesc').value = course.description || '';
+
+      const modalEl = document.getElementById('editCourseModal');
+      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+      modal.show();
+    };
+
+    window.deleteCourse = async function(id) {
+      if (!confirm('Are you sure you want to delete this course? This action cannot be undone.')) return;
+
+      const res = await window.SmartLearnAPI.courses.remove(id);
+      if (res.success || res.status === 204) {
+        alert('Course deleted successfully.');
+        await loadCourses();
+        if (activeUser && activeUser.id) {
+          await loadTeacherCourses(activeUser.id);
+        }
+      } else {
+        const errorMsg = res.error || (res.data && res.data.detail) || 'Failed to delete course.';
+        alert('Error: ' + errorMsg);
+      }
+    };
+
     function setupTeacherForms() {
+      // 1. Create Course Form
       const courseForm = document.getElementById('createCourseForm');
       if (courseForm) {
         courseForm.addEventListener('submit', async (e) => {
@@ -758,22 +879,54 @@
           const level = document.getElementById('newCourseLevel').value;
           const description = document.getElementById('newCourseDesc').value.trim();
 
-          const newCourse = {
-            title,
-            subject,
-            level,
-            description,
-            teacher: document.getElementById('userNameDisplay').textContent || 'Teacher'
-          };
-
+          const newCourse = { title, subject, level, description };
           const res = await window.SmartLearnAPI.courses.create(newCourse);
-          alert('Course successfully published! It is now visible in the course browser.');
-          courseForm.reset();
-          await loadCourses();
-          document.getElementById('viewStudentBtn').click();
+
+          if (res.success) {
+            alert('Course successfully published! It is now visible in the course browser.');
+            courseForm.reset();
+            await loadCourses();
+            if (activeUser && activeUser.id) {
+              await loadTeacherCourses(activeUser.id);
+            }
+          } else {
+            const errorMsg = res.error || (res.data && res.data.detail) || 'Failed to create course. Please check your inputs.';
+            alert('Error: ' + errorMsg);
+          }
         });
       }
 
+      // 2. Edit Course Form
+      const editForm = document.getElementById('editCourseForm');
+      if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const id = document.getElementById('editCourseId').value;
+          const title = document.getElementById('editCourseTitle').value.trim();
+          const subject = document.getElementById('editCourseSubject').value;
+          const level = document.getElementById('editCourseLevel').value;
+          const description = document.getElementById('editCourseDesc').value.trim();
+
+          const updateData = { title, subject, level, description };
+          const res = await window.SmartLearnAPI.courses.update(id, updateData);
+
+          if (res.success) {
+            alert('Course updated successfully!');
+            const modalEl = document.getElementById('editCourseModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            await loadCourses();
+            if (activeUser && activeUser.id) {
+              await loadTeacherCourses(activeUser.id);
+            }
+          } else {
+            const errorMsg = res.error || (res.data && res.data.detail) || 'Failed to update course.';
+            alert('Error: ' + errorMsg);
+          }
+        });
+      }
+
+      // 3. Add Material Form
       const matForm = document.getElementById('addMaterialForm');
       if (matForm) {
         matForm.addEventListener('submit', (e) => {

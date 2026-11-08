@@ -27,6 +27,8 @@ let courses = [
     subject: "Mathematics",
     level: "S6",
     teacher: "Mr. Habimana",
+    teacher_name: "Mr. Habimana",
+    teacher_id: 1,
     notesCount: 24,
     description: "Calculus, vectors in 3D, trigonometry, and national past exam papers with step-by-step solutions.",
     image: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=600&q=80",
@@ -42,6 +44,8 @@ let courses = [
     subject: "Physics",
     level: "S6",
     teacher: "Dr. Uwase",
+    teacher_name: "Dr. Uwase",
+    teacher_id: 2,
     notesCount: 18,
     description: "Classical mechanics, wave optics, electromagnetic induction, and experimental problem sets.",
     image: "https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=600&q=80",
@@ -275,7 +279,9 @@ async function handleRequest(req, res) {
   if ((pathname === '/auth/me' || pathname === '/api/auth/me') && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
+      id: 1,
       username: 'student',
+      full_name: 'Student User',
       name: 'Student User',
       email: 'student@smartlearn.rw',
       role: 'student'
@@ -287,12 +293,16 @@ async function handleRequest(req, res) {
   if ((pathname === '/courses' || pathname === '/api/courses') && req.method === 'GET') {
     const subject = parsedUrl.searchParams.get('subject');
     const level = parsedUrl.searchParams.get('level');
+    const teacherId = parsedUrl.searchParams.get('teacher_id');
     let filtered = courses;
     if (subject && subject !== 'all') {
       filtered = filtered.filter(c => c.subject.toLowerCase() === subject.toLowerCase());
     }
     if (level && level !== 'all') {
       filtered = filtered.filter(c => c.level.toLowerCase() === level.toLowerCase());
+    }
+    if (teacherId) {
+      filtered = filtered.filter(c => String(c.teacher_id) === String(teacherId));
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(filtered));
@@ -302,12 +312,47 @@ async function handleRequest(req, res) {
   if ((pathname === '/courses' || pathname === '/api/courses') && req.method === 'POST') {
     const newCourse = await readBody(req);
     newCourse.id = courses.length + 1;
+    newCourse.teacher_id = newCourse.teacher_id || 1;
+    newCourse.teacher_name = newCourse.teacher_name || newCourse.teacher || "Mr. Habimana";
     newCourse.notesCount = 0;
     newCourse.materials = [];
     newCourse.image = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80";
     courses.push(newCourse);
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(newCourse));
+    return;
+  }
+
+  // PATCH /courses/:id
+  if ((pathname.startsWith('/courses/') || pathname.startsWith('/api/courses/')) && req.method === 'PATCH') {
+    const parts = pathname.split('/');
+    const courseId = parseInt(parts[parts.length - 1], 10);
+    const body = await readBody(req);
+    const course = courses.find(c => c.id === courseId);
+    if (!course) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ detail: 'Course not found' }));
+      return;
+    }
+    Object.assign(course, body);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(course));
+    return;
+  }
+
+  // DELETE /courses/:id
+  if ((pathname.startsWith('/courses/') || pathname.startsWith('/api/courses/')) && req.method === 'DELETE') {
+    const parts = pathname.split('/');
+    const courseId = parseInt(parts[parts.length - 1], 10);
+    const index = courses.findIndex(c => c.id === courseId);
+    if (index === -1) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ detail: 'Course not found' }));
+      return;
+    }
+    courses.splice(index, 1);
+    res.writeHead(204);
+    res.end();
     return;
   }
 
