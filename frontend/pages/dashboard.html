@@ -650,28 +650,38 @@
         <div class="card p-3 border rounded-3 bg-light question-card" data-qidx="${qIdx}">
           <p class="fw-bold mb-3 text-dark">
             <span class="badge bg-secondary me-2">Q${qIdx + 1}</span>
-            ${q.question}
+            ${q.text || q.question}
           </p>
           <div class="d-flex flex-column gap-2">
-            ${q.options.map((opt, optIdx) => `
-              <label class="quiz-option-btn" for="q_${qIdx}_opt_${optIdx}">
-                <input class="form-check-input me-2" type="radio" name="question_${qIdx}" id="q_${qIdx}_opt_${optIdx}" value="${optIdx}" required>
-                <span>${opt}</span>
+            ${(q.options || []).map((opt, optIdx) => {
+              const optId = typeof opt === 'object' ? opt.id : optIdx;
+              const optText = typeof opt === 'object' ? opt.text : opt;
+              return `
+              <label class="quiz-option-btn" for="q_${q.id || qIdx}_opt_${optId}">
+                <input class="form-check-input me-2" type="radio" name="question_${q.id || qIdx}" id="q_${q.id || qIdx}_opt_${optId}" value="${optId}" required>
+                <span>${optText}</span>
               </label>
-            `).join('')}
+              `;
+            }).join('')}
           </div>
         </div>
       `).join('');
 
-      // Setup Submit Event
+      // Setup Submit Event with Backend Schema (PR #30)
       const form = document.getElementById('activeQuizForm');
       form.onsubmit = async (e) => {
         e.preventDefault();
-        const answers = {};
-        currentQuizData.questions.forEach((_, idx) => {
-          const selected = form.querySelector(`input[name="question_${idx}"]:checked`);
-          if (selected) answers[idx] = selected.value;
-        });
+
+        // Build answers array matching backend schema: [ { question_id, option_id } ]
+        const answers = (currentQuizData.questions || [])
+          .map((q, idx) => {
+            const selected = form.querySelector(`input[name="question_${q.id || idx}"]:checked`);
+            return {
+              question_id: q.id || (idx + 1),
+              option_id: selected ? Number(selected.value) : null
+            };
+          })
+          .filter(a => a.option_id !== null && !isNaN(a.option_id));
 
         // Submit to API
         const submitRes = await window.SmartLearnAPI.quizzes.submit(currentQuizData.id, answers);
@@ -682,17 +692,18 @@
       modal.show();
     }
 
-    // Display instant quiz score and feedback (Issue 16 & 10)
+    // Display instant quiz score and feedback (Issue 16 & PR #30)
     function displayQuizResult(res) {
       document.getElementById('quizQuestionBox').classList.add('d-none');
       const resultBox = document.getElementById('quizResultBox');
       resultBox.classList.remove('d-none');
 
-      const data = res.data || { score: 3, total: 3, percentage: 100, feedback: [] };
-      document.getElementById('quizResultScore').textContent = `Score: ${data.score} / ${data.total} (${data.percentage}%)`;
+      const data = res.data || { score: 0, total: 0, percentage: 0, feedback: [] };
+      const pct = Math.round(data.percentage || 0);
+      document.getElementById('quizResultScore').textContent = `Score: ${data.score} / ${data.total} (${pct}%)`;
       
       const icon = document.getElementById('quizResultIcon');
-      if (data.percentage >= 70) {
+      if (pct >= 60) {
         icon.innerHTML = `<i class="bi bi-trophy-fill text-warning fs-1"></i>`;
         document.getElementById('quizResultMessage').textContent = "Excellent work! Your answers are recorded in your performance history.";
       } else {
@@ -703,48 +714,70 @@
       // Breakdown explanations
       const breakdown = document.getElementById('quizFeedbackBreakdown');
       if (data.feedback && data.feedback.length > 0) {
-        breakdown.innerHTML = `<h6 class="fw-bold mb-3">Answer Review & Explanations:</h6>` + data.feedback.map((f, i) => `
+        breakdown.innerHTML = `<h6 class="fw-bold mb-3">Answer Review & Explanations:</h6>` + data.feedback.map((f, i) => {
+          const isCorrect = f.is_correct !== undefined ? f.is_correct : f.isCorrect;
+          const qText = f.question_text || f.question || `Question ${i + 1}`;
+          return `
           <div class="mb-3 pb-2 border-bottom">
             <div class="d-flex align-items-center gap-2 mb-1">
-              <span class="badge ${f.isCorrect ? 'bg-success' : 'bg-danger'}">${f.isCorrect ? 'Correct' : 'Incorrect'}</span>
-              <strong class="small">Question ${i + 1}: ${f.question}</strong>
+              <span class="badge ${isCorrect ? 'bg-success' : 'bg-danger'}">${isCorrect ? 'Correct' : 'Incorrect'}</span>
+              <strong class="small">${qText}</strong>
             </div>
             <div class="small text-muted mb-1">Explanation: ${f.explanation || 'Reviewed according to national curriculum syllabus.'}</div>
           </div>
-        `).join('');
+          `;
+        }).join('');
       } else {
-        breakdown.innerHTML = `<p class="small text-success mb-0"><i class="bi bi-check-circle me-1"></i>All questions answered with complete accuracy!</p>`;
+        breakdown.innerHTML = `<p class="small text-success mb-0"><i class="bi bi-check-circle me-1"></i>Quiz submitted and recorded in your history.</p>`;
       }
 
-      // Refresh attempts table
+      // Refresh attempts table and stats dynamically
       loadUserResults();
     }
 
-    // 4. Load Results History (Issue 17: loads attempts from GET /me/results)
+    // 4. Load Results History & Calculate Dashboard Stats (Issue 17 & PR #30)
     async function loadUserResults() {
-      const res = await window.SmartLearnAPI.http.get('/me/results');
+      const res = await window.SmartLearnAPI.results.list();
       const tableBody = document.getElementById('resultsTableBody');
       if (!tableBody) return;
 
-      const results = (res.success && Array.isArray(res.data)) ? res.data : [
-        { quizTitle: "Mathematics S6: Calculus Basics", score: 3, total: 3, percentage: 100, date: "2026-11-06", status: "Passed" },
-        { quizTitle: "Physics S6: Wave Mechanics", score: 2, total: 2, percentage: 100, date: "2026-11-05", status: "Passed" }
-      ];
+      const results = (res.success && Array.isArray(res.data)) ? res.data : [];
+
+      // Calculate dynamic stats
+      const statQuizzesCount = document.getElementById('statQuizzesCount');
+      const statAvgScore = document.getElementById('statAvgScore');
+      if (results.length > 0) {
+        if (statQuizzesCount) statQuizzesCount.textContent = `${results.length} Completed`;
+        const avg = Math.round(results.reduce((acc, cur) => acc + (cur.percentage || 0), 0) / results.length);
+        if (statAvgScore) statAvgScore.textContent = `${avg}%`;
+      } else {
+        if (statQuizzesCount) statQuizzesCount.textContent = '0 Completed';
+        if (statAvgScore) statAvgScore.textContent = '--';
+      }
 
       if (results.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No quiz attempts yet. Start practicing with any quiz above!</td></tr>`;
         return;
       }
 
-      tableBody.innerHTML = results.map(r => `
+      tableBody.innerHTML = results.map(r => {
+        const title = r.quiz_title || r.quizTitle || 'Practice Quiz';
+        const pct = Math.round(r.percentage || 0);
+        const dateStr = r.submitted_at
+          ? new Date(r.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : (r.date || 'Today');
+        const isPassed = pct >= 60;
+
+        return `
         <tr>
-          <td class="fw-semibold text-dark">${r.quizTitle}</td>
+          <td class="fw-semibold text-dark">${title}</td>
           <td>${r.score} / ${r.total}</td>
-          <td><span class="fw-bold ${r.percentage >= 60 ? 'text-success' : 'text-warning'}">${r.percentage}%</span></td>
-          <td class="text-muted small">${r.date}</td>
-          <td><span class="badge ${r.percentage >= 60 ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'} rounded-pill">${r.status || 'Completed'}</span></td>
+          <td><span class="fw-bold ${isPassed ? 'text-success' : 'text-warning'}">${pct}%</span></td>
+          <td class="text-muted small">${dateStr}</td>
+          <td><span class="badge ${isPassed ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'} rounded-pill">${isPassed ? 'Passed' : 'Needs Review'}</span></td>
         </tr>
-      `).join('');
+        `;
+      }).join('');
     }
 
     // 5. Setup Teacher Course & Material Forms (Issue 18 & 19)

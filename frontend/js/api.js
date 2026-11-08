@@ -65,10 +65,12 @@
     }
 
     try {
-      const response = await fetchWithTimeout(url, {
-        ...options,
-        headers
-      });
+      const fetchOpts = { ...options, headers };
+      if (fetchOpts.body && typeof fetchOpts.body === 'object' && !(fetchOpts.body instanceof FormData)) {
+        fetchOpts.body = JSON.stringify(fetchOpts.body);
+      }
+
+      const response = await fetchWithTimeout(url, fetchOpts);
 
       let data = {};
       const contentType = response.headers.get('content-type') || '';
@@ -88,6 +90,12 @@
         } else if (data.message) {
           message = data.message;
         }
+
+        // Automatic expired token logout on protected endpoints
+        if (response.status === 401 && !cleanEndpoint.startsWith('/auth/login') && !cleanEndpoint.startsWith('/auth/register')) {
+          auth.logout();
+        }
+
         return {
           success: false,
           status: response.status,
@@ -120,12 +128,17 @@
     get: (endpoint, options = {}) => apiRequest(endpoint, { method: 'GET', ...options }),
     post: (endpoint, body, options = {}) => apiRequest(endpoint, {
       method: 'POST',
-      body: typeof body === 'string' ? body : JSON.stringify(body),
+      body,
+      ...options
+    }),
+    patch: (endpoint, body, options = {}) => apiRequest(endpoint, {
+      method: 'PATCH',
+      body,
       ...options
     }),
     put: (endpoint, body, options = {}) => apiRequest(endpoint, {
       method: 'PUT',
-      body: typeof body === 'string' ? body : JSON.stringify(body),
+      body,
       ...options
     }),
     delete: (endpoint, options = {}) => apiRequest(endpoint, { method: 'DELETE', ...options })
@@ -162,7 +175,11 @@
     },
 
     async getProfile() {
-      return http.get('/auth/me');
+      const res = await http.get('/auth/me');
+      if (res.success && res.data) {
+        localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER, JSON.stringify(res.data));
+      }
+      return res;
     },
 
     getCurrentUser() {
@@ -195,12 +212,20 @@
    */
   const courses = {
     list: (params = {}) => {
-      const query = new URLSearchParams(params).toString();
+      const cleanParams = {};
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '' && String(v).toLowerCase() !== 'all') {
+          cleanParams[k] = v;
+        }
+      });
+      const query = new URLSearchParams(cleanParams).toString();
       return http.get(query ? `/courses?${query}` : '/courses');
     },
     getById: (id) => http.get(`/courses/${id}`),
     getMaterials: (courseId) => http.get(`/courses/${courseId}/materials`),
-    create: (courseData) => http.post('/courses', courseData)
+    create: (courseData) => http.post('/courses', courseData),
+    update: (id, courseData) => http.patch(`/courses/${id}`, courseData),
+    remove: (id) => http.delete(`/courses/${id}`)
   };
 
   /**
@@ -209,7 +234,21 @@
   const quizzes = {
     getByCourse: (courseId) => http.get(`/courses/${courseId}/quizzes`),
     getById: (quizId) => http.get(`/quizzes/${quizId}`),
-    submit: (quizId, answers) => http.post(`/quizzes/${quizId}/submit`, { answers })
+    create: (courseId, quizData) => http.post(`/courses/${courseId}/quizzes`, quizData),
+    getAnswerKey: (quizId) => http.get(`/quizzes/${quizId}/answer-key`),
+    submit: (quizId, answers) => http.post(`/quizzes/${quizId}/submit`, { answers }),
+    remove: (quizId) => http.delete(`/quizzes/${quizId}`)
+  };
+
+  /**
+   * Results endpoints (Issue 17 & PR #30)
+   */
+  const results = {
+    list: (params = {}) => {
+      const query = new URLSearchParams(params).toString();
+      return http.get(query ? `/me/results?${query}` : '/me/results');
+    },
+    getById: (attemptId) => http.get(`/me/results/${attemptId}`)
   };
 
   // Expose to window for global access
@@ -220,6 +259,7 @@
     auth,
     courses,
     quizzes,
+    results,
     checkBackendHealth
   };
 
