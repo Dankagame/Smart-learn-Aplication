@@ -15,6 +15,7 @@ SmartLearn is a lightweight **web application** that runs in any web browser, so
 - [Technology Stack](#technology-stack)
 - [Architecture Overview](#architecture-overview)
 - [Why It Fits a 6-Week DevOps Course](#why-it-fits-a-6-week-devops-course)
+- [Running the Tests](#running-the-tests)
 
 ---
 
@@ -87,3 +88,33 @@ Because the two parts depend only on the API between them, each one can be **bui
 - **Meaningful:** It addresses a real problem: students preparing for national exams have limited access to organized study resources and practice.
 - **Already functional:** The core flows (registering, logging in, creating a course, and taking a quiz) can be demonstrated early and then improved each week.
 - **Easy to containerize and deploy:** The frontend and backend are separate, and the backend is split into modules for auth, courses, and quizzes. Each part can get its own Docker image, CI pipeline, and cloud deployment, and the backend modules can later become independent **microservices**.
+
+## Running the Tests
+
+The backend has an automated test suite written with **pytest**. The tests use a temporary in-memory SQLite database, so they don't need PostgreSQL and never touch real data.
+
+```bash
+cd backend
+source venv/bin/activate
+pip install -r requirements.txt
+pytest
+```
+
+To see how much of the code the tests cover:
+
+```bash
+pytest --cov --cov-report=term
+```
+
+| Test file | What it checks |
+|-----------|----------------|
+| `test_auth_register.py` | Registration, input validation, duplicate emails, bcrypt password hashing |
+| `test_auth_login.py` | Login, JWT tokens, protected endpoints, role protection (401 / 403) |
+| `test_security.py` | Password hashing and JWT creation and validation (unit tests) |
+| `test_courses.py` | Course create, edit, delete, filters, and course ownership |
+| `test_quizzes.py` | Quiz creation rules, and that correct answers are hidden from students |
+| `test_quiz_submission.py` | Quiz submission, feedback, and the `/me/results` history |
+| `test_scoring.py` | The scoring function (unit tests) |
+| `test_health.py` | The `/health` endpoint |
+
+All tests must pass before a pull request is merged into `main`.
