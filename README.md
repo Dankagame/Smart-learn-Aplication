@@ -14,8 +14,15 @@ SmartLearn is a lightweight **web application** that runs in any web browser, so
 - [Core Features](#core-features)
 - [Technology Stack](#technology-stack)
 - [Architecture Overview](#architecture-overview)
-- [Why It Fits a 6-Week DevOps Course](#why-it-fits-a-6-week-devops-course)
+- [Project Structure](#project-structure)
+- [How to Run Locally](#how-to-run-locally)
 - [Running the Tests](#running-the-tests)
+- [Security Practices](#security-practices)
+- [Branch Protection Rules](#branch-protection-rules)
+- [Development Workflow](#development-workflow)
+- [Why It Fits a 6-Week DevOps Course](#why-it-fits-a-6-week-devops-course)
+- [Team](#team)
+- [License](#license)
 
 ---
 
@@ -82,28 +89,113 @@ SmartLearn keeps the **frontend and backend separate**. The frontend is a set of
 
 Because the two parts depend only on the API between them, each one can be **built, tested, containerized, and deployed on its own**. Inside the backend, the code is organized into separate modules for **authentication**, **courses & materials**, and **quizzes & results**, each with a clear responsibility.
 
-## Why It Fits a 6-Week DevOps Course
+## Project Structure
 
-- **Simple in scope:** The feature set is small and well defined (accounts, courses, materials, quizzes, results), so the team can spend most of its effort on DevOps practices instead of complex application logic.
-- **Meaningful:** It addresses a real problem: students preparing for national exams have limited access to organized study resources and practice.
-- **Already functional:** The core flows (registering, logging in, creating a course, and taking a quiz) can be demonstrated early and then improved each week.
-- **Easy to containerize and deploy:** The frontend and backend are separate, and the backend is split into modules for auth, courses, and quizzes. Each part can get its own Docker image, CI pipeline, and cloud deployment, and the backend modules can later become independent **microservices**.
+```
+Smart-learn-Aplication/
+├── backend/                FastAPI REST API
+│   ├── app/
+│   │   ├── core/           settings, database, security helpers
+│   │   ├── auth/           registration, login, roles
+│   │   ├── courses/        courses and learning materials
+│   │   ├── quizzes/        quizzes, scoring, results
+│   │   └── main.py         app entry point
+│   ├── tests/              pytest test suite
+│   ├── requirements.txt
+│   └── .env.example        example settings (no real secrets)
+├── frontend/               HTML, Bootstrap 5, JavaScript
+│   ├── index.html          landing page
+│   ├── pages/              login, register, dashboard
+│   ├── css/
+│   └── js/                 api.js (API client), auth.js, main.js
+├── .github/CODEOWNERS
+├── .gitignore
+├── LICENSE
+└── README.md
+```
+
+## How to Run Locally
+
+### Requirements
+
+- Python 3.12+
+- Git
+- A web browser (and optionally the VS Code **Live Server** extension)
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Dankagame/Smart-learn-Aplication.git
+cd Smart-learn-Aplication
+```
+
+### 2. Start the backend
+
+```bash
+cd backend
+python -m venv venv
+```
+
+Activate the virtual environment:
+
+- **Windows:** `venv\Scripts\activate`
+- **Mac/Linux:** `source venv/bin/activate`
+
+Install the dependencies and create your settings file:
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env          # Windows: copy .env.example .env
+```
+
+Open `.env` and set your own `SECRET_KEY`. You can generate one with:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Start the server:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+- API: http://127.0.0.1:8000
+- Interactive API docs: http://127.0.0.1:8000/docs
+- Health check: http://127.0.0.1:8000/health
+
+### 3. Start the frontend
+
+Open a **second terminal** in the project folder:
+
+```bash
+cd frontend
+python -m http.server 5500
+```
+
+Then open http://127.0.0.1:5500 in your browser. (Or, in VS Code, right-click `frontend/index.html` and choose **Open with Live Server**.)
+
+### 4. Try it out
+
+1. Register a **teacher** account, log in, then create a course and a quiz.
+2. Register a **student** account, log in, take the quiz, and see your score.
 
 ## Running the Tests
 
 The backend has an automated test suite written with **pytest**. The tests use a temporary in-memory SQLite database, so they don't need PostgreSQL and never touch real data.
 
+With the virtual environment activated (see [How to Run Locally](#how-to-run-locally)):
+
 ```bash
 cd backend
-source venv/bin/activate
-pip install -r requirements.txt
 pytest
 ```
 
-To see how much of the code the tests cover:
+To see how much of the code the tests cover, install `pytest-cov` first:
 
 ```bash
-pytest --cov --cov-report=term
+pip install pytest-cov
+pytest --cov=app --cov-report=term
 ```
 
 | Test file | What it checks |
@@ -117,4 +209,57 @@ pytest --cov --cov-report=term
 | `test_scoring.py` | The scoring function (unit tests) |
 | `test_health.py` | The `/health` endpoint |
 
-All tests must pass before a pull request is merged into `main`.
+For now, we run the tests before every merge into `main`. In Formative 2, our CI pipeline will run them automatically on every pull request as a required status check.
+
+## Security Practices
+
+We follow a **"shift left"** approach: security is built in from the first commit, not added at the end.
+
+- **No secrets in Git:** settings like `SECRET_KEY` and `DATABASE_URL` are read from a `.env` file, which Git ignores. Only `.env.example`, with placeholder values, is committed.
+- **Comprehensive `.gitignore`:** organized by category to exclude secrets, virtual environments, caches, databases, logs, IDE files, and future Terraform state.
+- **Password hashing:** passwords are hashed with bcrypt and are never stored or returned as plain text.
+- **Token authentication:** protected endpoints require a JWT token, and role checks stop students from using teacher actions (and the reverse).
+- **Protected `main` branch:** every change is reviewed before it is merged (see below).
+
+## Branch Protection Rules
+
+The `main` branch is protected so that every change is reviewed before it reaches the main codebase.
+
+| Rule | Why it matters |
+|------|----------------|
+| Require a pull request before merging | Nobody can push directly to `main`. Every change goes through a PR, so there is a clear record of what changed and why. |
+| Require 1 approval | Another team member must review the code. This catches bugs early and makes sure both of us understand all of the code. |
+| Dismiss stale approvals when new commits are pushed | If code changes after approval, it must be reviewed again, so unreviewed code cannot slip in. |
+| Require status checks to pass before merging | Automated checks must pass before merging. Our CI pipeline (Formative 2) will run the tests here, so broken code cannot reach `main`. |
+| Require branches to be up to date before merging | A PR must include the latest `main`, so it is checked against the current code and hidden conflicts are avoided. |
+| Require conversation resolution before merging | Every review comment must be answered or fixed, so feedback is never ignored. |
+| Include administrators | The rules apply to everyone, including the repository owner, so there are no shortcuts. |
+
+## Development Workflow
+
+1. Pick an issue from the [project board](LINK-TO-YOUR-PROJECT-BOARD) and move it to **In Progress**.
+2. Create a branch from `main`, for example `feature/auth` or `issue-13-frontend-structure`.
+3. Commit small, meaningful changes with clear messages.
+4. Open a pull request with a description and `Closes #<issue-number>`.
+5. The other team member reviews the code, leaves comments, and approves it.
+6. Merge the PR and delete the branch. The linked issue closes and moves to **Done**.
+
+`.github/CODEOWNERS` automatically requests a review from the other team member on every pull request.
+
+## Why It Fits a 6-Week DevOps Course
+
+- **Simple in scope:** The feature set is small and well defined (accounts, courses, materials, quizzes, results), so the team can spend most of its effort on DevOps practices instead of complex application logic.
+- **Meaningful:** It addresses a real problem: students preparing for national exams have limited access to organized study resources and practice.
+- **Already functional:** The core flows (registering, logging in, creating a course, and taking a quiz) work today and will be improved each week.
+- **Easy to containerize and deploy:** The frontend and backend are separate, and the backend is split into modules for auth, courses, and quizzes. Each part can get its own Docker image, CI pipeline, and cloud deployment, and the backend modules can later become independent **microservices**.
+
+## Team
+
+| Name | Role | Responsibilities |
+|------|------|------------------|
+| Dan Kagame | Backend Developer | FastAPI API, database, authentication, quizzes, tests |
+| Fatoumata Ndiaye | Frontend Developer | Landing page, login and registration, dashboard, API integration |
+
+## License
+
+This project is licensed under the **MIT License**. See [LICENSE](LICENSE).
