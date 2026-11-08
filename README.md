@@ -123,9 +123,19 @@ SmartLearn is fully containerized with **Docker** and orchestrated using **Docke
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / macOS) or Docker Engine & Docker Compose (Linux)
 
-### 1. Start all services
+### 1. Configure environment variables and start services
 
-From the repository root:
+Copy the example environment configuration into `.env` (Docker Compose automatically reads this file):
+
+```bash
+# On Linux / macOS / Git Bash
+cp .env.example .env
+
+# On Windows PowerShell
+Copy-Item .env.example .env
+```
+
+Review the values in `.env` if you want to customize your database username or password. Then run:
 
 ```bash
 docker compose up --build
@@ -135,7 +145,7 @@ Docker Compose will automatically:
 1. Build the production multi-stage backend image (`Dockerfile`) running as non-root user `appuser`.
 2. Build the lightweight production Nginx frontend image (`frontend/Dockerfile`) running as non-root user `nginx`.
 3. Pull and launch PostgreSQL 16 Alpine (`postgres:16-alpine`).
-4. Initialize the isolated bridge network `smartlearn_network` and persistent data volume `smartlearn_postgres_data`.
+4. Initialize the isolated bridge network `smartlearn-network` and persistent data volume `postgres_data`.
 5. Wait for PostgreSQL and backend healthchecks before routing traffic.
 
 ### 2. Access the Application
