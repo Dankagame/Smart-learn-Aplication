@@ -240,6 +240,17 @@
     remove: (quizId) => http.delete(`/quizzes/${quizId}`)
   };
 
+  /**
+   * Results endpoints (Issue 17 & PR #30)
+   */
+  const results = {
+    list: (params = {}) => {
+      const query = new URLSearchParams(params).toString();
+      return http.get(query ? `/me/results?${query}` : '/me/results');
+    },
+    getById: (attemptId) => http.get(`/me/results/${attemptId}`)
+  };
+
   // Expose to window for global access
   window.SmartLearnAPI = {
     config: API_CONFIG,
@@ -248,6 +259,7 @@
     auth,
     courses,
     quizzes,
+    results,
     checkBackendHealth
   };
 

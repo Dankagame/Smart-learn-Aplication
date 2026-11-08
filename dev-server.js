@@ -358,7 +358,8 @@ async function handleRequest(req, res) {
 
   // 4. Quizzes API
   if (pathname.startsWith('/api/quizzes/') && pathname.endsWith('/submit') && req.method === 'POST') {
-    const quizId = parseInt(pathname.split('/')[3], 10);
+    const parts = pathname.split('/');
+    const quizId = parseInt(parts[2] === 'quizzes' ? parts[3] : parts[2], 10) || 1;
     const body = await readBody(req);
     const answers = body.answers || {};
     const quiz = quizzes[quizId] || quizzes[1];
@@ -366,30 +367,41 @@ async function handleRequest(req, res) {
     let score = 0;
     const feedback = [];
 
+    // Support list [ { question_id, option_id } ] or object answers
     quiz.questions.forEach((q, idx) => {
-      const selected = answers[idx] !== undefined ? parseInt(answers[idx], 10) : -1;
-      const isCorrect = selected === q.correctIndex;
+      let selected = -1;
+      if (Array.isArray(answers)) {
+        const found = answers.find(a => a.question_id === q.id || a.question_id === (idx + 1));
+        if (found) selected = found.option_id;
+      } else if (answers[idx] !== undefined) {
+        selected = parseInt(answers[idx], 10);
+      }
+      const isCorrect = selected === q.correctIndex || selected === (q.correctIndex + 1);
       if (isCorrect) score++;
 
       feedback.push({
-        questionId: q.id,
-        question: q.question,
-        selectedOption: selected,
-        correctOption: q.correctIndex,
-        isCorrect,
-        explanation: q.explanation
+        question_id: q.id,
+        question_text: q.question || q.text,
+        selected_option_id: selected,
+        correct_option_id: q.correctIndex,
+        is_correct: isCorrect,
+        explanation: q.explanation || "National exam syllabus review."
       });
     });
 
     const percentage = Math.round((score / quiz.questions.length) * 100);
     const attempt = {
+      attempt_id: userResults.length + 1,
       id: userResults.length + 1,
+      quiz_id: quizId,
+      quiz_title: quiz.title,
       quizTitle: quiz.title,
       score,
       total: quiz.questions.length,
       percentage,
+      submitted_at: new Date().toISOString(),
       date: new Date().toISOString().split('T')[0],
-      status: percentage >= 50 ? 'Passed' : 'Needs Review'
+      status: percentage >= 60 ? 'Passed' : 'Needs Review'
     };
     userResults.unshift(attempt);
 
