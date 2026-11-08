@@ -435,7 +435,7 @@ async function handleRequest(req, res) {
   }
 
   // 5. Results History API
-  if (pathname === '/api/me/results' && req.method === 'GET') {
+  if ((pathname === '/me/results' || pathname === '/api/me/results') && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(userResults));
     return;
