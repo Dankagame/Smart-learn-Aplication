@@ -41,3 +41,21 @@ def client(db_session: Session):
     app.dependency_overrides[get_db] = override_get_db
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def create_user(client):
+    def _create_user(
+        role: str, email: str, full_name: str = "Test User", password: str = "StrongPass123"
+    ) -> dict:
+        registered = client.post(
+            "/auth/register",
+            json={"full_name": full_name, "email": email, "password": password, "role": role},
+        )
+        assert registered.status_code == 201, registered.text
+        token = client.post("/auth/login", json={"email": email, "password": password}).json()[
+            "access_token"
+        ]
+        return {**registered.json(), "headers": {"Authorization": f"Bearer {token}"}}
+
+    return _create_user
