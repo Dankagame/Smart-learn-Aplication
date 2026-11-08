@@ -3,7 +3,8 @@ from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, Field, model_validator
 
-from app.quizzes.models import Choice, Question, Quiz, QuizAttempt
+from app.quizzes.models import Choice, Quiz, QuizAttempt
+from app.quizzes.scoring import grade, percentage
 
 MIN_OPTIONS = 2
 MAX_OPTIONS = 6
@@ -208,7 +209,13 @@ class AttemptResult(AttemptSummary):
 
     @classmethod
     def from_attempt(cls, attempt: QuizAttempt) -> "AttemptResult":
-        selected = {answer.question_id: answer.choice_id for answer in attempt.answers}
+        selected = {
+            answer.question_id: answer.choice_id
+            for answer in attempt.answers
+            if answer.choice_id is not None
+        }
+        questions = attempt.quiz.questions
+        graded = grade(questions, selected).questions
         return cls(
             **AttemptSummary.from_attempt(attempt).model_dump(),
             feedback=[
@@ -216,19 +223,11 @@ class AttemptResult(AttemptSummary):
                     question_id=question.id,
                     position=question.position,
                     question_text=question.text,
-                    selected_option_id=selected.get(question.id),
-                    correct_option_id=correct_choice(question).id,
-                    is_correct=selected.get(question.id) == correct_choice(question).id,
+                    selected_option_id=result.selected_option_id,
+                    correct_option_id=result.correct_option_id,
+                    is_correct=result.is_correct,
                     explanation=question.explanation,
                 )
-                for question in attempt.quiz.questions
+                for question, result in zip(questions, graded)
             ],
         )
-
-
-def percentage(score: int, total: int) -> float:
-    return round(score * 100 / total, 1) if total else 0.0
-
-
-def correct_choice(question: Question) -> Choice:
-    return next(choice for choice in question.choices if choice.is_correct)

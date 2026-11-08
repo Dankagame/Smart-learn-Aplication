@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.auth.models import User
 from app.quizzes.models import AttemptAnswer, Question, Quiz, QuizAttempt
-from app.quizzes.schemas import QuizSubmission, correct_choice
+from app.quizzes.schemas import QuizSubmission
+from app.quizzes.scoring import grade
 from app.quizzes.service import get_quiz
 
 
@@ -44,22 +45,21 @@ def validate_answers(quiz: Quiz, submission: QuizSubmission) -> dict[int, int]:
 
 def submit_attempt(db: Session, quiz_id: int, student: User, submission: QuizSubmission) -> QuizAttempt:
     quiz = get_quiz(db, quiz_id)
-    selected = validate_answers(quiz, submission)
+    result = grade(quiz.questions, validate_answers(quiz, submission))
 
-    answers = [
-        AttemptAnswer(
-            question_id=question.id,
-            choice_id=selected.get(question.id),
-            is_correct=selected.get(question.id) == correct_choice(question).id,
-        )
-        for question in quiz.questions
-    ]
     attempt = QuizAttempt(
         quiz=quiz,
         student=student,
-        score=sum(answer.is_correct for answer in answers),
-        total_questions=len(quiz.questions),
-        answers=answers,
+        score=result.score,
+        total_questions=result.total,
+        answers=[
+            AttemptAnswer(
+                question_id=graded.question_id,
+                choice_id=graded.selected_option_id,
+                is_correct=graded.is_correct,
+            )
+            for graded in result.questions
+        ],
     )
     db.add(attempt)
     db.commit()
