@@ -8,6 +8,7 @@ from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.core.database import Base, check_db_connection, engine
 from app.courses.router import router as courses_router
+from app.quizzes.router import results_router
 from app.quizzes.router import router as quizzes_router
 
 settings = get_settings()
@@ -37,6 +38,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(courses_router)
 app.include_router(quizzes_router)
+app.include_router(results_router)
 
 
 @app.get("/health", tags=["health"])
