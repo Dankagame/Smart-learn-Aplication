@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Bootstrap 5.3 CSS -->
+  <!-- Bootstrap 5.3 CSS & Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
@@ -34,7 +34,6 @@
       </a>
 
       <div class="d-flex align-items-center gap-3">
-
         <!-- User Profile Pill -->
         <div class="d-flex align-items-center gap-2">
           <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="Avatar" class="rounded-circle border" style="width: 36px; height: 36px; object-fit: cover;">
@@ -54,7 +53,7 @@
   <!-- Dashboard Container -->
   <main class="container-xl py-4">
     
-    <!-- Welcome Banner with Role Switcher -->
+    <!-- Welcome Banner with Role Switcher (Issue 15 & 18) -->
     <div class="card border-0 rounded-4 shadow-sm text-white mb-4" style="background: linear-gradient(135deg, #4a2c7a 0%, #7b4ec8 100%);">
       <div class="card-body p-4 p-md-5 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
         <div>
@@ -63,8 +62,8 @@
           <p class="mb-0 text-white-50">Curriculum-aligned revision materials and interactive practice quizzes optimized for fast, low-data usage.</p>
         </div>
 
-        <!-- Role Toggle Pills (Student / Teacher View) -->
-        <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-25 text-center">
+        <!-- Role Toggle Pills (Visible for teachers) -->
+        <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-25 text-center" id="roleToggleContainer">
           <div class="small text-white-50 mb-1">Switch View</div>
           <div class="btn-group" role="group">
             <button type="button" class="btn btn-sm btn-light active rounded-pill px-3 fw-bold" id="viewStudentBtn">Student View</button>
@@ -74,7 +73,7 @@
       </div>
     </div>
 
-    <!-- Quick Stats Row -->
+    <!-- Quick Stats Row (Issue 15 & 17) -->
     <div class="row g-3 mb-4">
       <div class="col-sm-6 col-md-3">
         <div class="card border-0 rounded-4 shadow-sm p-3 bg-white">
@@ -83,14 +82,13 @@
               <i class="bi bi-journal-bookmark-fill fs-3"></i>
             </div>
             <div>
-              <div class="text-muted small">Enrolled Courses</div>
+              <div class="text-muted small">Available Courses</div>
               <div class="fs-4 fw-bold" id="statCoursesCount">4 Subjects</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Placeholder metrics: Quizzes Completed and Average Score. These values will dynamically come from the API (GET /me/results). -->
       <div class="col-sm-6 col-md-3">
         <div class="card border-0 rounded-4 shadow-sm p-3 bg-white">
           <div class="d-flex align-items-center">
@@ -99,7 +97,7 @@
             </div>
             <div>
               <div class="text-muted small">Quizzes Completed</div>
-              <div class="fs-4 fw-bold" id="statQuizzesCount">2 / 5</div>
+              <div class="fs-4 fw-bold" id="statQuizzesCount">0 Completed</div>
             </div>
           </div>
         </div>
@@ -113,7 +111,7 @@
             </div>
             <div>
               <div class="text-muted small">Average Score</div>
-              <div class="fs-4 fw-bold text-success" id="statAvgScore">100%</div>
+              <div class="fs-4 fw-bold text-success" id="statAvgScore">--</div>
             </div>
           </div>
         </div>
@@ -126,15 +124,17 @@
               <i class="bi bi-lightning-charge-fill fs-3"></i>
             </div>
             <div>
-              <div class="text-muted small">Data Saved</div>
-              <div class="fs-4 fw-bold text-info">94%</div>
+              <div class="text-muted small">Data Efficiency</div>
+              <div class="fs-4 fw-bold text-info">94% Saved</div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- STUDENT SECTION (Issue 15 & 16 & 17) -->
+    <!-- ========================================== -->
+    <!-- STUDENT SECTION (Issue 15, Issue 16, Issue 17) -->
+    <!-- ========================================== -->
     <div id="studentSection">
       
       <!-- Filters Bar (Issue 15: Filter dropdowns for subject and level) -->
@@ -159,10 +159,13 @@
 
           <div class="col-6 col-md-3">
             <select class="form-select border-0 bg-light" id="filterLevelSelect">
-              <option value="all" selected>All Levels</option>
-              <option value="S6">Senior 6 (S6)</option>
-              <option value="S5">Senior 5 (S5)</option>
+              <option value="all" selected>All Levels (S1 - S6)</option>
+              <option value="S1">Senior 1 (S1)</option>
+              <option value="S2">Senior 2 (S2)</option>
+              <option value="S3">Senior 3 (S3)</option>
               <option value="S4">Senior 4 (S4)</option>
+              <option value="S5">Senior 5 (S5)</option>
+              <option value="S6">Senior 6 (S6)</option>
             </select>
           </div>
 
@@ -172,10 +175,10 @@
         </div>
       </div>
 
-      <!-- Courses Grid (Issue 15: Loads courses and shows them as Bootstrap cards) -->
+      <!-- Courses Grid Header (Issue 15: Loads courses from GET /courses) -->
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="h4 fw-bold mb-0 text-dark">Available Courses & Study Materials</h3>
-        <span class="text-muted small" id="coursesCountDisplay">Showing 4 courses</span>
+        <span class="text-muted small" id="coursesCountDisplay">Showing courses...</span>
       </div>
 
       <div class="row g-4 mb-5" id="coursesCardsContainer">
@@ -186,7 +189,7 @@
       <div class="card border-0 rounded-4 shadow-sm p-4 bg-white mb-5">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
-            <span class="section-tag mb-1">Performance Tracker</span>
+            <span class="badge bg-purple-subtle text-primary-emphasis rounded-pill mb-1">Performance Tracker</span>
             <h3 class="h4 fw-bold mb-0 text-dark">My Quiz Attempts History</h3>
           </div>
           <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="loadUserResults()">
@@ -195,7 +198,7 @@
         </div>
 
         <div class="table-responsive">
-          <table class="table table-hover align-middle" id="resultsTable">
+          <table class="table table-hover align-middle mb-0" id="resultsTable">
             <thead class="table-light">
               <tr>
                 <th>Quiz Title</th>
@@ -214,11 +217,45 @@
 
     </div>
 
-    <!-- TEACHER SECTION (Issue 18 & 19: Teacher Course & Quiz Management) -->
+    <!-- ========================================== -->
+    <!-- TEACHER SECTION (Issue 18 & Issue 19) -->
+    <!-- ========================================== -->
     <div id="teacherSection" class="d-none">
       
+      <!-- Teacher Courses Management Table (Issue 18: List with Edit & Delete) -->
+      <div class="card border-0 rounded-4 shadow-sm p-4 bg-white mb-4">
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
+          <div>
+            <span class="badge bg-primary-subtle text-primary rounded-pill mb-1">Course Administration</span>
+            <h3 class="h4 fw-bold mb-0 text-dark">My Created Courses</h3>
+          </div>
+          <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="document.getElementById('newCourseTitle').focus()">
+            <i class="bi bi-plus-circle me-1"></i>New Course
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Course Title</th>
+                <th>Subject</th>
+                <th>Level</th>
+                <th>Materials</th>
+                <th>Teacher</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="teacherCoursesTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Create Course & Add Material Row (Issue 18) -->
       <div class="row g-4 mb-4">
-        <!-- Create Course Form (Issue 18) -->
+        <!-- Form to Create Course (Issue 18) -->
         <div class="col-lg-6">
           <div class="card border-0 rounded-4 shadow-sm p-4 bg-white h-100">
             <div class="d-flex align-items-center gap-2 mb-3">
@@ -230,7 +267,7 @@
             <form id="createCourseForm">
               <div class="mb-3">
                 <label class="form-label small fw-semibold text-muted">Course Title</label>
-                <input type="text" class="form-control form-control-custom" id="newCourseTitle" placeholder="e.g. Advanced Trigonometry" required>
+                <input type="text" class="form-control form-control-custom" id="newCourseTitle" placeholder="e.g. Advanced Trigonometry" minlength="3" required>
               </div>
 
               <div class="row g-2 mb-3">
@@ -246,9 +283,12 @@
                 <div class="col-6">
                   <label class="form-label small fw-semibold text-muted">Grade Level</label>
                   <select class="form-select form-control-custom" id="newCourseLevel" required>
-                    <option value="S6">Senior 6 (S6)</option>
-                    <option value="S5">Senior 5 (S5)</option>
+                    <option value="S1">Senior 1 (S1)</option>
+                    <option value="S2">Senior 2 (S2)</option>
+                    <option value="S3">Senior 3 (S3)</option>
                     <option value="S4">Senior 4 (S4)</option>
+                    <option value="S5">Senior 5 (S5)</option>
+                    <option value="S6" selected>Senior 6 (S6)</option>
                   </select>
                 </div>
               </div>
@@ -265,46 +305,193 @@
           </div>
         </div>
 
-        <!-- Add Material / Quick Quiz Builder (Issue 19) -->
+        <!-- Form to Add Material (Issue 18: title, notes, optional link) -->
         <div class="col-lg-6">
           <div class="card border-0 rounded-4 shadow-sm p-4 bg-white h-100">
             <div class="d-flex align-items-center gap-2 mb-3">
               <div class="rounded-3 p-2 bg-success text-white"><i class="bi bi-journal-plus"></i></div>
               <h3 class="h5 fw-bold mb-0">Add Study Notes & Materials</h3>
             </div>
-            <p class="text-muted small">Upload revision summaries or past paper solutions for your students.</p>
+            <p class="text-muted small">Attach revision summaries, formulas, or past exam solutions to a course.</p>
 
             <form id="addMaterialForm">
               <div class="mb-3">
-                <label class="form-label small fw-semibold text-muted">Select Target Course</label>
-                <select class="form-select form-control-custom" id="materialCourseSelect">
-                  <option value="1">Advanced Mathematics (S6)</option>
-                  <option value="2">Modern Physics (S6)</option>
-                  <option value="3">Organic Chemistry (S5)</option>
+                <label class="form-label small fw-semibold text-muted">Target Course</label>
+                <select class="form-select form-control-custom" id="materialCourseSelect" required>
+                  <!-- Populated dynamically -->
                 </select>
               </div>
 
               <div class="mb-3">
                 <label class="form-label small fw-semibold text-muted">Material Title</label>
-                <input type="text" class="form-control form-control-custom" id="materialTitle" placeholder="e.g. Vectors and Scalar Products Formulas" required>
+                <input type="text" class="form-control form-control-custom" id="materialTitle" placeholder="e.g. Vectors and Matrices Summary" required>
               </div>
 
               <div class="mb-3">
-                <label class="form-label small fw-semibold text-muted">Resource URL / Notes Text</label>
-                <textarea class="form-control form-control-custom" id="materialNotes" rows="3" placeholder="Paste notes or external resource link..." required></textarea>
+                <label class="form-label small fw-semibold text-muted">Notes / Content</label>
+                <textarea class="form-control form-control-custom" id="materialNotes" rows="3" placeholder="Key revision points, formulas, or summaries..." required></textarea>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label small fw-semibold text-muted">Optional External Resource Link</label>
+                <input type="url" class="form-control form-control-custom" id="materialLinkUrl" placeholder="https://example.com/notes.pdf">
               </div>
 
               <button type="submit" class="btn btn-outline-success w-100 rounded-pill fw-bold">
-                <i class="bi bi-check2-circle me-1"></i>Attach to Course
+                <i class="bi bi-check2-circle me-1"></i>Attach Material to Course
               </button>
             </form>
           </div>
         </div>
       </div>
 
+      <!-- Teacher Quiz Builder Card (Issue 19) -->
+      <div class="card border-0 rounded-4 shadow-sm p-4 bg-white mb-4">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <div class="rounded-3 p-2 bg-purple-subtle text-primary-emphasis"><i class="bi bi-ui-checks-grid fs-5"></i></div>
+          <div>
+            <h3 class="h5 fw-bold mb-0">Teacher Quiz Builder</h3>
+            <p class="text-muted small mb-0">Create multiple-choice quizzes with hidden answer keys and automated grading.</p>
+          </div>
+        </div>
+
+        <form id="teacherQuizBuilderForm">
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-muted">Target Course</label>
+              <select class="form-select form-control-custom" id="quizTargetCourseSelect" required>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-muted">Quiz Title</label>
+              <input type="text" class="form-control form-control-custom" id="builderQuizTitle" placeholder="e.g. S6 Differential Equations Mastery Quiz" minlength="3" required>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label small fw-semibold text-muted">Quiz Description / Instructions</label>
+            <input type="text" class="form-control form-control-custom" id="builderQuizDesc" placeholder="e.g. 5 multiple-choice questions aligned with national exams.">
+          </div>
+
+          <!-- Dynamic Questions List (Issue 19: Add question & Add option buttons) -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="fw-bold mb-0 text-dark">Questions & Answer Options</h5>
+              <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" id="btnAddQuestion">
+                <i class="bi bi-plus-circle me-1"></i>Add Question
+              </button>
+            </div>
+            <p class="text-muted small">Add between 1 and 20 questions. Each question must have 2 to 6 options with exactly one correct option selected.</p>
+
+            <div id="builderQuestionsContainer" class="d-flex flex-column gap-3">
+              <!-- Dynamically populated question blocks -->
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">
+            <i class="bi bi-cloud-check me-1"></i>Publish Quiz to Course
+          </button>
+        </form>
+      </div>
+
+      <!-- Teacher Quiz Results Viewer (Issue 19: Table of student results from GET /quizzes/{id}/results) -->
+      <div class="card border-0 rounded-4 shadow-sm p-4 bg-white mb-5">
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
+          <div>
+            <span class="badge bg-info-subtle text-info-emphasis rounded-pill mb-1">Classroom Analytics</span>
+            <h3 class="h4 fw-bold mb-0 text-dark">Class Quiz Results</h3>
+          </div>
+          <div style="min-width: 250px;">
+            <select class="form-select form-select-sm rounded-pill" id="teacherResultsQuizSelect">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0" id="teacherResultsTable">
+            <thead class="table-light">
+              <tr>
+                <th>Attempt #</th>
+                <th>Student</th>
+                <th>Score</th>
+                <th>Percentage</th>
+                <th>Date</th>
+                <th>Performance</th>
+              </tr>
+            </thead>
+            <tbody id="teacherResultsTableBody">
+              <!-- Injected dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
 
   </main>
+
+  <!-- ========================================== -->
+  <!-- MODALS -->
+  <!-- ========================================== -->
+
+  <!-- Course Details & Study Hub Modal (Issue 15: Clicking a course shows materials and quizzes) -->
+  <div class="modal fade" id="courseDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+        <div class="modal-header bg-soft border-0 p-4">
+          <div>
+            <div class="d-flex gap-2 mb-1">
+              <span class="badge bg-secondary rounded-pill" id="detailModalSubject">Subject</span>
+              <span class="badge bg-primary-subtle text-primary rounded-pill" id="detailModalLevel">Level</span>
+            </div>
+            <h4 class="modal-title fw-bold text-dark" id="detailModalTitle">Course Title</h4>
+            <div class="small text-muted" id="detailModalTeacher"><i class="bi bi-person me-1"></i>Teacher</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body p-4">
+          <p class="text-secondary mb-4" id="detailModalDesc">Course description text...</p>
+
+          <!-- Nav Tabs for Materials & Quizzes -->
+          <ul class="nav nav-pills mb-3 gap-2" id="courseDetailTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active rounded-pill px-4" id="tabMaterialsBtn" data-bs-toggle="pill" data-bs-target="#tabMaterialsPane" type="button" role="tab">
+                <i class="bi bi-file-earmark-text me-1"></i>Study Materials (<span id="detailMaterialsCount">0</span>)
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link rounded-pill px-4" id="tabQuizzesBtn" data-bs-toggle="pill" data-bs-target="#tabQuizzesPane" type="button" role="tab">
+                <i class="bi bi-question-diamond me-1"></i>Practice Quizzes (<span id="detailQuizzesCount">0</span>)
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="courseDetailTabsContent">
+            <!-- Tab 1: Materials -->
+            <div class="tab-pane fade show active" id="tabMaterialsPane" role="tabpanel">
+              <div class="d-flex flex-column gap-2" id="detailMaterialsContainer">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Tab 2: Quizzes -->
+            <div class="tab-pane fade" id="tabQuizzesPane" role="tabpanel">
+              <div class="d-flex flex-column gap-2" id="detailQuizzesContainer">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer border-0 p-3 bg-light">
+          <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Interactive Quiz Modal (Issue 16: Dynamic questions, radio buttons, instant scoring) -->
   <div class="modal fade" id="quizModal" tabindex="-1" aria-labelledby="quizModalLabel" aria-hidden="true">
@@ -314,13 +501,13 @@
         <div class="modal-header bg-soft border-0 p-4">
           <div>
             <span class="badge bg-purple-subtle text-primary-emphasis rounded-pill" id="quizModalBadge">Practice Quiz</span>
-            <h4 class="modal-title fw-bold text-dark mt-1" id="quizModalTitle">Senior 6 Mathematics Quiz</h4>
+            <h4 class="modal-title fw-bold text-dark mt-1" id="quizModalTitle">Curriculum Quiz</h4>
           </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
 
         <div class="modal-body p-4">
-          <!-- Quiz Questions Container -->
+          <!-- Quiz Questions Box -->
           <div id="quizQuestionBox">
             <form id="activeQuizForm">
               <div id="quizQuestionsList" class="d-flex flex-column gap-4">
@@ -333,7 +520,7 @@
             </form>
           </div>
 
-          <!-- Quiz Results Container -->
+          <!-- Quiz Results Box -->
           <div id="quizResultBox" class="text-center d-none py-4">
             <div class="mb-3" id="quizResultIcon">
               <i class="bi bi-trophy-fill text-warning fs-1"></i>
@@ -355,22 +542,55 @@
     </div>
   </div>
 
-  <!-- Course Materials Drawer Modal (Issue 15: shows course materials) -->
-  <div class="modal fade" id="materialsModal" tabindex="-1" aria-hidden="true">
+  <!-- Edit Course Modal (Issue 18: Teacher course editing) -->
+  <div class="modal fade" id="editCourseModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content border-0 rounded-4 shadow">
         <div class="modal-header border-0 pb-0">
           <div>
-            <span class="badge bg-primary-subtle text-primary rounded-pill">Course Materials</span>
-            <h5 class="modal-title fw-bold mt-1" id="materialsModalTitle">Course Materials</h5>
+            <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill">Course Settings</span>
+            <h5 class="modal-title fw-bold mt-1">Edit Course</h5>
           </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body py-4">
-          <p class="text-muted small mb-3">All notes are optimized for low data usage and can be saved offline.</p>
-          <div class="d-flex flex-column gap-2" id="materialsListContainer">
-            <!-- Dynamically populated -->
-          </div>
+          <form id="editCourseForm">
+            <input type="hidden" id="editCourseId">
+            <div class="mb-3">
+              <label class="form-label small fw-semibold text-muted">Course Title</label>
+              <input type="text" class="form-control form-control-custom" id="editCourseTitle" required minlength="3">
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label small fw-semibold text-muted">Subject</label>
+                <select class="form-select form-control-custom" id="editCourseSubject" required>
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Chemistry">Chemistry</option>
+                  <option value="Biology">Biology</option>
+                </select>
+              </div>
+              <div class="col-6">
+                <label class="form-label small fw-semibold text-muted">Level</label>
+                <select class="form-select form-control-custom" id="editCourseLevel" required>
+                  <option value="S1">Senior 1 (S1)</option>
+                  <option value="S2">Senior 2 (S2)</option>
+                  <option value="S3">Senior 3 (S3)</option>
+                  <option value="S4">Senior 4 (S4)</option>
+                  <option value="S5">Senior 5 (S5)</option>
+                  <option value="S6">Senior 6 (S6)</option>
+                </select>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold text-muted">Description</label>
+              <textarea class="form-control form-control-custom" id="editCourseDesc" rows="3" required></textarea>
+            </div>
+            <div class="d-flex justify-content-end gap-2">
+              <button type="button" class="btn btn-secondary rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">Save Changes</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -381,29 +601,45 @@
   <script src="../js/api.js"></script>
   <script src="../js/main.js"></script>
   <script>
-    // State variables
+    // Global State
     let allCourses = [];
     let currentQuizData = null;
+    let currentUser = null;
+    let builderQuestionIndex = 0;
 
-    // Check Auth Token on load (Issue 15: Redirects to login if user has no token)
+    // Initialization on page load (Issue 15: Token verification & role setup)
     document.addEventListener('DOMContentLoaded', async () => {
-      // Check Auth Token on load (Issue 15: Redirects to login if user has no token)
-      const token = localStorage.getItem('smartlearn_token');
+      // 1. Verify token
+      const token = window.SmartLearnAPI.auth.getToken();
       if (!token) {
         window.location.href = 'login.html';
         return;
       }
 
-      const activeUser = window.SmartLearnAPI && window.SmartLearnAPI.auth 
-        ? window.SmartLearnAPI.auth.getCurrentUser() 
-        : null;
-
-      if (activeUser) {
-        document.getElementById('userNameDisplay').textContent = activeUser.full_name || activeUser.name || activeUser.email || 'Student';
-        document.getElementById('userRoleDisplay').textContent = activeUser.role === 'teacher' ? 'Teacher (Instructor)' : 'Student (S6)';
+      // Check current session
+      currentUser = window.SmartLearnAPI.auth.getCurrentUser();
+      if (!currentUser) {
+        const profileRes = await window.SmartLearnAPI.auth.getProfile();
+        if (profileRes.success && profileRes.data) {
+          currentUser = profileRes.data;
+        } else {
+          window.SmartLearnAPI.auth.logout();
+          return;
+        }
       }
 
-      // Logout handler
+      // Update User Profile UI
+      document.getElementById('userNameDisplay').textContent = currentUser.full_name || currentUser.name || currentUser.username || 'Learner';
+      const isTeacher = currentUser.role === 'teacher';
+      document.getElementById('userRoleDisplay').textContent = isTeacher ? 'Teacher (Instructor)' : 'Student (S6)';
+
+      // Hide or show teacher view switcher
+      const roleToggle = document.getElementById('roleToggleContainer');
+      if (!isTeacher) {
+        if (roleToggle) roleToggle.classList.add('d-none');
+      }
+
+      // Logout listener
       document.getElementById('btnLogout').addEventListener('click', () => {
         window.SmartLearnAPI.auth.logout();
       });
@@ -421,13 +657,10 @@
         document.getElementById('teacherSection').classList.remove('d-none');
         document.getElementById('viewTeacherBtn').className = 'btn btn-sm btn-light active rounded-pill px-3 fw-bold';
         document.getElementById('viewStudentBtn').className = 'btn btn-sm btn-outline-light rounded-pill px-3 fw-bold';
+        renderTeacherSection();
       });
 
-      // Load dynamic courses and results
-      await loadCourses();
-      await loadUserResults();
-
-      // Setup filter events
+      // Filter events (Issue 15)
       document.getElementById('filterSubjectSelect').addEventListener('change', applyFilters);
       document.getElementById('filterLevelSelect').addEventListener('change', applyFilters);
       document.getElementById('searchCourseInput').addEventListener('input', applyFilters);
@@ -438,31 +671,39 @@
         applyFilters();
       });
 
-      // Setup teacher forms
+      // Setup forms & dynamic builders
       setupTeacherForms();
+      setupQuizBuilder();
+
+      // Initial Data Loading
+      await loadCourses();
+      await loadUserResults();
     });
 
-    // 1. Load Courses from API (Issue 15)
+    // ==========================================
+    // 1. COURSES BROWSER (Issue 15)
+    // ==========================================
     async function loadCourses() {
       const res = await window.SmartLearnAPI.courses.list();
       if (res.success && Array.isArray(res.data)) {
         allCourses = res.data;
       } else {
-        // Fallback demo courses
+        // Fallback default sample curriculum courses
         allCourses = [
           {
             id: 1,
             title: "Advanced Mathematics",
             subject: "Mathematics",
             level: "S6",
+            teacher_name: "Mr. Habimana",
             teacher: "Mr. Habimana",
-            notesCount: 24,
+            notesCount: 3,
             description: "Calculus, vectors in 3D, trigonometry, and national past exam papers with step-by-step solutions.",
             image: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=600&q=80",
             materials: [
-              { id: 101, title: "Differential Calculus Summary", type: "PDF", size: "180 KB" },
-              { id: 102, title: "3D Vectors & Matrices Cheat Sheet", type: "PDF", size: "210 KB" },
-              { id: 103, title: "National Exam 2024 Solved Paper", type: "PDF", size: "350 KB" }
+              { id: 101, title: "Differential Calculus Summary", type: "PDF", size: "180 KB", link: "#" },
+              { id: 102, title: "3D Vectors & Matrices Cheat Sheet", type: "PDF", size: "210 KB", link: "#" },
+              { id: 103, title: "National Exam 2024 Solved Paper", type: "PDF", size: "350 KB", link: "#" }
             ]
           },
           {
@@ -470,13 +711,14 @@
             title: "Modern Physics",
             subject: "Physics",
             level: "S6",
+            teacher_name: "Dr. Uwase",
             teacher: "Dr. Uwase",
-            notesCount: 18,
+            notesCount: 2,
             description: "Classical mechanics, wave optics, electromagnetic induction, and experimental problem sets.",
             image: "https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=600&q=80",
             materials: [
-              { id: 201, title: "Electromagnetism Formulas & Laws", type: "PDF", size: "145 KB" },
-              { id: 202, title: "Quantum & Atomic Physics Review", type: "PDF", size: "190 KB" }
+              { id: 201, title: "Electromagnetism Formulas & Laws", type: "PDF", size: "145 KB", link: "#" },
+              { id: 202, title: "Quantum & Atomic Physics Review", type: "PDF", size: "190 KB", link: "#" }
             ]
           },
           {
@@ -484,13 +726,14 @@
             title: "Organic & Physical Chemistry",
             subject: "Chemistry",
             level: "S5",
+            teacher_name: "Mrs. Mukamana",
             teacher: "Mrs. Mukamana",
-            notesCount: 15,
+            notesCount: 2,
             description: "Hydrocarbons, reaction mechanisms, stoichiometry, redox titration, and chemical kinetics.",
             image: "https://images.unsplash.com/photo-1603126857599-f6e157fa2fe6?auto=format&fit=crop&w=600&q=80",
             materials: [
-              { id: 301, title: "Organic Functional Groups Chart", type: "PDF", size: "120 KB" },
-              { id: 302, title: "Reaction Mechanisms Walkthrough", type: "PDF", size: "230 KB" }
+              { id: 301, title: "Organic Functional Groups Chart", type: "PDF", size: "120 KB", link: "#" },
+              { id: 302, title: "Reaction Mechanisms Walkthrough", type: "PDF", size: "230 KB", link: "#" }
             ]
           },
           {
@@ -498,22 +741,24 @@
             title: "General & Cellular Biology",
             subject: "Biology",
             level: "S4",
+            teacher_name: "Mr. Karemera",
             teacher: "Mr. Karemera",
-            notesCount: 20,
+            notesCount: 2,
             description: "Mendelian genetics, cellular respiration, human organ physiology, and lightweight illustrated diagrams.",
             image: "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=600&q=80",
             materials: [
-              { id: 401, title: "Cell Structure & Organelles Summary", type: "PDF", size: "95 KB" },
-              { id: 402, title: "Genetics & Punnett Squares Guide", type: "PDF", size: "160 KB" }
+              { id: 401, title: "Cell Structure & Organelles Summary", type: "PDF", size: "95 KB", link: "#" },
+              { id: 402, title: "Genetics & Punnett Squares Guide", type: "PDF", size: "160 KB", link: "#" }
             ]
           }
         ];
       }
 
+      document.getElementById('statCoursesCount').textContent = `${allCourses.length} Courses`;
       renderCourses(allCourses);
+      populateCourseSelects();
     }
 
-    // Render course cards dynamically
     function renderCourses(courses) {
       const container = document.getElementById('coursesCardsContainer');
       const countDisplay = document.getElementById('coursesCountDisplay');
@@ -532,39 +777,43 @@
         return;
       }
 
-      container.innerHTML = courses.map(c => `
-        <div class="col-md-6 col-lg-3">
-          <div class="card-course">
-            <div class="course-thumb-wrap">
-              <img src="${c.image || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80'}" alt="${c.title}">
-              <span class="course-level-badge">Senior ${c.level ? c.level.replace('S', '') : '6'} (${c.level || 'S6'})</span>
-            </div>
-            <div class="course-body">
-              <h4 class="course-title">${c.title}</h4>
-              <div class="course-teacher"><i class="bi bi-person me-1"></i>${c.teacher || 'Instructor'}</div>
-              <p class="course-desc">${c.description || 'Curriculum notes and exam exercises.'}</p>
-              
-              <div class="mt-auto pt-3 border-top d-flex flex-column gap-2">
-                <div class="d-flex justify-content-between align-items-center text-muted small">
-                  <span><i class="bi bi-file-earmark-text me-1"></i>${c.notesCount || (c.materials ? c.materials.length : 0)} Notes</span>
-                  <span class="badge bg-light text-secondary border">${c.subject}</span>
-                </div>
-                <div class="d-flex gap-2">
-                  <button class="btn btn-outline-secondary btn-sm rounded-pill flex-grow-1" onclick="openMaterialsModal(${c.id})">
-                    <i class="bi bi-folder2-open me-1"></i>Notes
-                  </button>
-                  <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="startQuiz(${c.id})">
-                    <i class="bi bi-play-circle me-1"></i>Quiz
-                  </button>
+      container.innerHTML = courses.map(c => {
+        const teacherName = c.teacher_name || c.teacher || 'Instructor';
+        const levelText = c.level ? `Senior ${c.level.replace(/[^0-9]/g, '') || '6'} (${c.level})` : 'Senior 6 (S6)';
+        const notesCount = c.notesCount || (c.materials ? c.materials.length : 0);
+        return `
+          <div class="col-md-6 col-lg-3">
+            <div class="card-course h-100 d-flex flex-column" onclick="openCourseDetailsModal(${c.id})">
+              <div class="course-thumb-wrap">
+                <img src="${c.image || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80'}" alt="${c.title}">
+                <span class="course-level-badge">${levelText}</span>
+              </div>
+              <div class="course-body d-flex flex-column flex-grow-1">
+                <h4 class="course-title text-truncate" title="${c.title}">${c.title}</h4>
+                <div class="course-teacher"><i class="bi bi-person me-1"></i>${teacherName}</div>
+                <p class="course-desc flex-grow-1">${c.description || 'Curriculum revision notes and practice problems.'}</p>
+                
+                <div class="mt-auto pt-3 border-top">
+                  <div class="d-flex justify-content-between align-items-center text-muted small mb-2">
+                    <span><i class="bi bi-file-earmark-text me-1"></i>${notesCount} Note${notesCount === 1 ? '' : 's'}</span>
+                    <span class="badge bg-light text-secondary border">${c.subject}</span>
+                  </div>
+                  <div class="d-flex gap-2" onclick="event.stopPropagation()">
+                    <button class="btn btn-outline-primary btn-sm rounded-pill flex-grow-1" onclick="openCourseDetailsModal(${c.id})">
+                      <i class="bi bi-folder2-open me-1"></i>View Course
+                    </button>
+                    <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="startQuizForCourse(${c.id})">
+                      <i class="bi bi-play-circle me-1"></i>Quiz
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
-    // Apply Filter Dropdowns & Search (Issue 15)
     function applyFilters() {
       const subject = document.getElementById('filterSubjectSelect').value.toLowerCase();
       const level = document.getElementById('filterLevelSelect').value.toLowerCase();
@@ -576,7 +825,8 @@
         const matchesQuery = !query || 
           (c.title && c.title.toLowerCase().includes(query)) ||
           (c.description && c.description.toLowerCase().includes(query)) ||
-          (c.teacher && c.teacher.toLowerCase().includes(query));
+          (c.teacher && c.teacher.toLowerCase().includes(query)) ||
+          (c.teacher_name && c.teacher_name.toLowerCase().includes(query));
 
         return matchesSubject && matchesLevel && matchesQuery;
       });
@@ -584,59 +834,127 @@
       renderCourses(filtered);
     }
 
-    // 2. Open Materials Drawer Modal (Issue 15)
-    function openMaterialsModal(courseId) {
+    // ==========================================
+    // 2. COURSE DETAILS & MATERIALS MODAL (Issue 15)
+    // ==========================================
+    async function openCourseDetailsModal(courseId) {
       const course = allCourses.find(c => c.id === courseId) || allCourses[0];
-      document.getElementById('materialsModalTitle').textContent = `${course.title} · Notes`;
-      
-      const listContainer = document.getElementById('materialsListContainer');
-      const items = course.materials && course.materials.length > 0
-        ? course.materials
+      if (!course) return;
+
+      document.getElementById('detailModalTitle').textContent = course.title;
+      document.getElementById('detailModalSubject').textContent = course.subject;
+      document.getElementById('detailModalLevel').textContent = course.level || 'S6';
+      document.getElementById('detailModalTeacher').innerHTML = `<i class="bi bi-person me-1"></i>${course.teacher_name || course.teacher || 'Instructor'}`;
+      document.getElementById('detailModalDesc').textContent = course.description || 'Comprehensive Rwanda national curriculum syllabus.';
+
+      // Load Materials
+      const materialsContainer = document.getElementById('detailMaterialsContainer');
+      const matRes = await window.SmartLearnAPI.courses.getMaterials(course.id);
+      const materials = (matRes.success && Array.isArray(matRes.data) && matRes.data.length > 0)
+        ? matRes.data
+        : (course.materials || []);
+
+      document.getElementById('detailMaterialsCount').textContent = materials.length;
+      if (materials.length === 0) {
+        materialsContainer.innerHTML = `<div class="text-center py-4 text-muted"><i class="bi bi-folder-x fs-2 mb-1"></i><p>No materials attached to this course yet.</p></div>`;
+      } else {
+        materialsContainer.innerHTML = materials.map(m => `
+          <div class="d-flex justify-content-between align-items-center p-3 rounded-3 border bg-light">
+            <div class="d-flex align-items-center gap-3">
+              <i class="bi bi-file-earmark-pdf-fill text-danger fs-3"></i>
+              <div>
+                <div class="fw-bold text-dark">${m.title}</div>
+                <div class="small text-muted">${m.content || m.notes || 'Curriculum revision summary and exam tips'}</div>
+              </div>
+            </div>
+            <a href="${m.link_url || '#'}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="if(this.getAttribute('href')==='#'){ alert('Downloaded ${m.title} (optimized for low-data).'); return false;}">
+              <i class="bi bi-download me-1"></i>Open
+            </a>
+          </div>
+        `).join('');
+      }
+
+      // Load Quizzes
+      const quizzesContainer = document.getElementById('detailQuizzesContainer');
+      const quizRes = await window.SmartLearnAPI.quizzes.getByCourse(course.id);
+      const quizzes = (quizRes.success && Array.isArray(quizRes.data) && quizRes.data.length > 0)
+        ? quizRes.data
         : [
-            { title: "Core Syllabus Summary", type: "PDF", size: "120 KB" },
-            { title: "Past National Exam Questions", type: "PDF", size: "280 KB" }
+            { id: course.id, title: `${course.title} Revision Quiz`, question_count: 3 }
           ];
 
-      listContainer.innerHTML = items.map(m => `
-        <div class="d-flex justify-content-between align-items-center p-2 rounded-3 border bg-light">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-file-earmark-pdf-fill text-danger fs-4"></i>
+      document.getElementById('detailQuizzesCount').textContent = quizzes.length;
+      quizzesContainer.innerHTML = quizzes.map(q => `
+        <div class="d-flex justify-content-between align-items-center p-3 rounded-3 border bg-light">
+          <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-patch-question-fill text-primary fs-3"></i>
             <div>
-              <div class="fw-semibold small text-dark">${m.title}</div>
-              <small class="text-muted">${m.type || 'PDF'} · ${m.size || '150 KB'}</small>
+              <div class="fw-bold text-dark">${q.title}</div>
+              <small class="text-muted"><i class="bi bi-check2-square me-1"></i>${q.question_count || 3} Questions · Instant feedback</small>
             </div>
           </div>
-          <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="alert('Downloading ${m.title} (optimized for low data usage).')">
-            <i class="bi bi-download"></i>
+          <button class="btn btn-sm btn-primary rounded-pill px-3 fw-bold" onclick="launchQuizById(${q.id})">
+            <i class="bi bi-play-circle me-1"></i>Start Quiz
           </button>
         </div>
       `).join('');
 
-      const modal = new bootstrap.Modal(document.getElementById('materialsModal'));
+      const modal = new bootstrap.Modal(document.getElementById('courseDetailsModal'));
       modal.show();
     }
 
-    // 3. Start Quiz with dynamic questions & radio buttons (Issue 16)
-    async function startQuiz(courseId) {
-      const quizRes = await window.SmartLearnAPI.quizzes.getById(courseId);
+    // ==========================================
+    // 3. STUDENT QUIZ PAGE & SIMULATOR (Issue 16)
+    // ==========================================
+    async function startQuizForCourse(courseId) {
+      const qRes = await window.SmartLearnAPI.quizzes.getByCourse(courseId);
+      if (qRes.success && Array.isArray(qRes.data) && qRes.data.length > 0) {
+        launchQuizById(qRes.data[0].id);
+      } else {
+        launchQuizById(courseId);
+      }
+    }
+
+    async function launchQuizById(quizId) {
+      // Close course detail modal if open
+      const detailsModalEl = document.getElementById('courseDetailsModal');
+      const activeDetailsModal = bootstrap.Modal.getInstance(detailsModalEl);
+      if (activeDetailsModal) activeDetailsModal.hide();
+
+      const quizRes = await window.SmartLearnAPI.quizzes.getById(quizId);
       currentQuizData = (quizRes.success && quizRes.data) ? quizRes.data : {
-        id: courseId,
-        title: courseId === 2 ? "Senior 6 Physics Quiz: Waves & Electromagnetism" : "Senior 6 Mathematics Quiz: Derivatives & Vectors",
+        id: quizId,
+        title: "Senior 6 Curriculum Revision Quiz",
         questions: [
           {
             id: 1,
-            question: "What is the derivative of f(x) = 3x² + 4x - 5?",
-            options: ["6x + 4", "3x + 4", "6x² + 4", "6x - 5"]
+            text: "What is the derivative of f(x) = 3x² + 4x - 5?",
+            options: [
+              { id: 1, text: "6x + 4" },
+              { id: 2, text: "3x + 4" },
+              { id: 3, text: "6x² + 4" },
+              { id: 4, text: "6x - 5" }
+            ]
           },
           {
             id: 2,
-            question: "What is the dot product of vectors u = (2, 3) and v = (4, -1)?",
-            options: ["5", "11", "8", "-5"]
+            text: "What is the dot product of vectors u = (2, 3) and v = (4, -1)?",
+            options: [
+              { id: 1, text: "5" },
+              { id: 2, text: "11" },
+              { id: 3, text: "8" },
+              { id: 4, text: "-5" }
+            ]
           },
           {
             id: 3,
-            question: "Evaluate the integral ∫ 2x dx:",
-            options: ["x² + C", "2x² + C", "x + C", "2 + C"]
+            text: "Evaluate the indefinite integral ∫ 2x dx:",
+            options: [
+              { id: 1, text: "x² + C" },
+              { id: 2, text: "2x² + C" },
+              { id: 3, text: "x + C" },
+              { id: 4, text: "2 + C" }
+            ]
           }
         ]
       };
@@ -645,54 +963,48 @@
       document.getElementById('quizQuestionBox').classList.remove('d-none');
       document.getElementById('quizResultBox').classList.add('d-none');
 
-      const qContainer = document.getElementById('quizQuestionsList');
-      qContainer.innerHTML = currentQuizData.questions.map((q, qIdx) => `
-        <div class="card p-3 border rounded-3 bg-light question-card" data-qidx="${qIdx}">
+      const questionsContainer = document.getElementById('quizQuestionsList');
+      questionsContainer.innerHTML = (currentQuizData.questions || []).map((q, qIdx) => `
+        <div class="card p-3 border rounded-4 bg-light shadow-sm">
           <p class="fw-bold mb-3 text-dark">
             <span class="badge bg-secondary me-2">Q${qIdx + 1}</span>
             ${q.text || q.question}
           </p>
           <div class="d-flex flex-column gap-2">
-            ${(q.options || []).map((opt, optIdx) => {
-              const optId = typeof opt === 'object' ? opt.id : optIdx;
+            ${(q.options || []).map(opt => {
+              const optId = typeof opt === 'object' ? opt.id : opt;
               const optText = typeof opt === 'object' ? opt.text : opt;
               return `
-              <label class="quiz-option-btn" for="q_${q.id || qIdx}_opt_${optId}">
-                <input class="form-check-input me-2" type="radio" name="question_${q.id || qIdx}" id="q_${q.id || qIdx}_opt_${optId}" value="${optId}" required>
-                <span>${optText}</span>
-              </label>
+                <label class="quiz-option-btn d-flex align-items-center p-2 rounded-3 border bg-white cursor-pointer" for="q_${q.id}_opt_${optId}">
+                  <input class="form-check-input me-3" type="radio" name="question_${q.id}" id="q_${q.id}_opt_${optId}" value="${optId}" required>
+                  <span class="fw-medium">${optText}</span>
+                </label>
               `;
             }).join('')}
           </div>
         </div>
       `).join('');
 
-      // Setup Submit Event with Backend Schema (PR #30)
       const form = document.getElementById('activeQuizForm');
       form.onsubmit = async (e) => {
         e.preventDefault();
 
-        // Build answers array matching backend schema: [ { question_id, option_id } ]
-        const answers = (currentQuizData.questions || [])
-          .map((q, idx) => {
-            const selected = form.querySelector(`input[name="question_${q.id || idx}"]:checked`);
-            return {
-              question_id: q.id || (idx + 1),
-              option_id: selected ? Number(selected.value) : null
-            };
-          })
-          .filter(a => a.option_id !== null && !isNaN(a.option_id));
+        const answers = (currentQuizData.questions || []).map(q => {
+          const selected = form.querySelector(`input[name="question_${q.id}"]:checked`);
+          return {
+            question_id: q.id,
+            option_id: selected ? Number(selected.value) : null
+          };
+        }).filter(a => a.option_id !== null && !isNaN(a.option_id));
 
-        // Submit to API
-        const submitRes = await window.SmartLearnAPI.quizzes.submit(currentQuizData.id, answers);
-        displayQuizResult(submitRes);
+        const res = await window.SmartLearnAPI.quizzes.submit(currentQuizData.id, answers);
+        displayQuizResult(res);
       };
 
       const modal = new bootstrap.Modal(document.getElementById('quizModal'));
       modal.show();
     }
 
-    // Display instant quiz score and feedback (Issue 16 & PR #30)
     function displayQuizResult(res) {
       document.getElementById('quizQuestionBox').classList.add('d-none');
       const resultBox = document.getElementById('quizResultBox');
@@ -701,41 +1013,41 @@
       const data = res.data || { score: 0, total: 0, percentage: 0, feedback: [] };
       const pct = Math.round(data.percentage || 0);
       document.getElementById('quizResultScore').textContent = `Score: ${data.score} / ${data.total} (${pct}%)`;
-      
+
       const icon = document.getElementById('quizResultIcon');
       if (pct >= 60) {
         icon.innerHTML = `<i class="bi bi-trophy-fill text-warning fs-1"></i>`;
         document.getElementById('quizResultMessage').textContent = "Excellent work! Your answers are recorded in your performance history.";
       } else {
         icon.innerHTML = `<i class="bi bi-bookmark-check-fill text-info fs-1"></i>`;
-        document.getElementById('quizResultMessage').textContent = "Good practice! Review the explanations below to strengthen your weak areas.";
+        document.getElementById('quizResultMessage').textContent = "Good revision practice! Study the explanations below to strengthen your weak areas.";
       }
 
-      // Breakdown explanations
       const breakdown = document.getElementById('quizFeedbackBreakdown');
       if (data.feedback && data.feedback.length > 0) {
         breakdown.innerHTML = `<h6 class="fw-bold mb-3">Answer Review & Explanations:</h6>` + data.feedback.map((f, i) => {
           const isCorrect = f.is_correct !== undefined ? f.is_correct : f.isCorrect;
           const qText = f.question_text || f.question || `Question ${i + 1}`;
           return `
-          <div class="mb-3 pb-2 border-bottom">
-            <div class="d-flex align-items-center gap-2 mb-1">
-              <span class="badge ${isCorrect ? 'bg-success' : 'bg-danger'}">${isCorrect ? 'Correct' : 'Incorrect'}</span>
-              <strong class="small">${qText}</strong>
+            <div class="mb-3 pb-2 border-bottom">
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge ${isCorrect ? 'bg-success' : 'bg-danger'}">${isCorrect ? 'Correct' : 'Incorrect'}</span>
+                <strong class="small">${qText}</strong>
+              </div>
+              <div class="small text-muted">Explanation: ${f.explanation || 'Aligned with Rwanda national examination syllabus.'}</div>
             </div>
-            <div class="small text-muted mb-1">Explanation: ${f.explanation || 'Reviewed according to national curriculum syllabus.'}</div>
-          </div>
           `;
         }).join('');
       } else {
-        breakdown.innerHTML = `<p class="small text-success mb-0"><i class="bi bi-check-circle me-1"></i>Quiz submitted and recorded in your history.</p>`;
+        breakdown.innerHTML = `<p class="small text-success mb-0"><i class="bi bi-check-circle me-1"></i>Your quiz answers were submitted and recorded.</p>`;
       }
 
-      // Refresh attempts table and stats dynamically
       loadUserResults();
     }
 
-    // 4. Load Results History & Calculate Dashboard Stats (Issue 17 & PR #30)
+    // ==========================================
+    // 4. RESULTS HISTORY TRACKER (Issue 17)
+    // ==========================================
     async function loadUserResults() {
       const res = await window.SmartLearnAPI.results.list();
       const tableBody = document.getElementById('resultsTableBody');
@@ -743,7 +1055,7 @@
 
       const results = (res.success && Array.isArray(res.data)) ? res.data : [];
 
-      // Calculate dynamic stats
+      // Update counters
       const statQuizzesCount = document.getElementById('statQuizzesCount');
       const statAvgScore = document.getElementById('statAvgScore');
       if (results.length > 0) {
@@ -756,7 +1068,15 @@
       }
 
       if (results.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No quiz attempts yet. Start practicing with any quiz above!</td></tr>`;
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="5" class="text-center py-5 text-muted">
+              <i class="bi bi-journal-check fs-2 d-block mb-2 text-secondary"></i>
+              <div class="fw-bold">No quiz attempts yet.</div>
+              <p class="small mb-0">Start practicing with any quiz above to track your progress before exams!</p>
+            </td>
+          </tr>
+        `;
         return;
       }
 
@@ -769,19 +1089,65 @@
         const isPassed = pct >= 60;
 
         return `
-        <tr>
-          <td class="fw-semibold text-dark">${title}</td>
-          <td>${r.score} / ${r.total}</td>
-          <td><span class="fw-bold ${isPassed ? 'text-success' : 'text-warning'}">${pct}%</span></td>
-          <td class="text-muted small">${dateStr}</td>
-          <td><span class="badge ${isPassed ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'} rounded-pill">${isPassed ? 'Passed' : 'Needs Review'}</span></td>
-        </tr>
+          <tr>
+            <td class="fw-semibold text-dark">${title}</td>
+            <td>${r.score} / ${r.total}</td>
+            <td><span class="fw-bold ${isPassed ? 'text-success' : 'text-warning'}">${pct}%</span></td>
+            <td class="text-muted small">${dateStr}</td>
+            <td><span class="badge ${isPassed ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'} rounded-pill">${isPassed ? 'Passed' : 'Needs Review'}</span></td>
+          </tr>
         `;
       }).join('');
     }
 
-    // 5. Setup Teacher Course & Material Forms (Issue 18 & 19)
+    // ==========================================
+    // 5. TEACHER DASHBOARD & MANAGEMENT (Issue 18 & 19)
+    // ==========================================
+    function renderTeacherSection() {
+      renderTeacherCoursesTable();
+      populateCourseSelects();
+      populateTeacherResultsSelect();
+    }
+
+    function renderTeacherCoursesTable() {
+      const tbody = document.getElementById('teacherCoursesTableBody');
+      if (!tbody) return;
+
+      if (allCourses.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No courses created yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = allCourses.map(c => `
+        <tr>
+          <td class="fw-bold text-dark">${c.title}</td>
+          <td><span class="badge bg-light text-secondary border">${c.subject}</span></td>
+          <td><span class="badge bg-primary-subtle text-primary">${c.level}</span></td>
+          <td>${c.notesCount || (c.materials ? c.materials.length : 0)} materials</td>
+          <td class="text-muted small">${c.teacher_name || c.teacher || 'Instructor'}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-secondary rounded-pill me-1" onclick="openEditCourseModal(${c.id})">
+              <i class="bi bi-pencil me-1"></i>Edit
+            </button>
+            <button class="btn btn-sm btn-outline-danger rounded-pill" onclick="deleteCourse(${c.id})">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function populateCourseSelects() {
+      const matSelect = document.getElementById('materialCourseSelect');
+      const quizSelect = document.getElementById('quizTargetCourseSelect');
+      const optionsHtml = allCourses.map(c => `<option value="${c.id}">${c.title} (${c.level})</option>`).join('');
+
+      if (matSelect) matSelect.innerHTML = optionsHtml;
+      if (quizSelect) quizSelect.innerHTML = optionsHtml;
+    }
+
     function setupTeacherForms() {
+      // Create Course Form
       const courseForm = document.getElementById('createCourseForm');
       if (courseForm) {
         courseForm.addEventListener('submit', async (e) => {
@@ -791,31 +1157,267 @@
           const level = document.getElementById('newCourseLevel').value;
           const description = document.getElementById('newCourseDesc').value.trim();
 
-          const newCourse = {
-            title,
-            subject,
-            level,
-            description,
-            teacher: document.getElementById('userNameDisplay').textContent || 'Teacher'
-          };
-
-          const res = await window.SmartLearnAPI.courses.create(newCourse);
-          alert('Course successfully published! It is now visible in the course browser.');
+          const res = await window.SmartLearnAPI.courses.create({ title, subject, level, description });
+          alert('Course successfully published!');
           courseForm.reset();
           await loadCourses();
-          document.getElementById('viewStudentBtn').click();
+          renderTeacherSection();
         });
       }
 
+      // Add Material Form
       const matForm = document.getElementById('addMaterialForm');
       if (matForm) {
-        matForm.addEventListener('submit', (e) => {
+        matForm.addEventListener('submit', async (e) => {
           e.preventDefault();
+          const courseId = parseInt(document.getElementById('materialCourseSelect').value, 10);
           const title = document.getElementById('materialTitle').value.trim();
-          alert(`Material "${title}" added to course notes successfully!`);
+          const notes = document.getElementById('materialNotes').value.trim();
+          const link_url = document.getElementById('materialLinkUrl').value.trim();
+
+          await window.SmartLearnAPI.courses.addMaterial(courseId, { title, content: notes, link_url });
+          alert(`Study material "${title}" added to course!`);
           matForm.reset();
+          await loadCourses();
+          renderTeacherSection();
         });
       }
+
+      // Edit Course Form
+      const editForm = document.getElementById('editCourseForm');
+      if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const id = parseInt(document.getElementById('editCourseId').value, 10);
+          const title = document.getElementById('editCourseTitle').value.trim();
+          const subject = document.getElementById('editCourseSubject').value;
+          const level = document.getElementById('editCourseLevel').value;
+          const description = document.getElementById('editCourseDesc').value.trim();
+
+          await window.SmartLearnAPI.courses.update(id, { title, subject, level, description });
+          alert('Course details updated successfully!');
+          const modalEl = document.getElementById('editCourseModal');
+          const modal = bootstrap.Modal.getInstance(modalEl);
+          if (modal) modal.hide();
+
+          await loadCourses();
+          renderTeacherSection();
+        });
+      }
+    }
+
+    function openEditCourseModal(courseId) {
+      const course = allCourses.find(c => c.id === courseId);
+      if (!course) return;
+
+      document.getElementById('editCourseId').value = course.id;
+      document.getElementById('editCourseTitle').value = course.title;
+      document.getElementById('editCourseSubject').value = course.subject;
+      document.getElementById('editCourseLevel').value = course.level;
+      document.getElementById('editCourseDesc').value = course.description || '';
+
+      const modal = new bootstrap.Modal(document.getElementById('editCourseModal'));
+      modal.show();
+    }
+
+    async function deleteCourse(courseId) {
+      if (!confirm('Are you sure you want to delete this course and all its attached materials?')) return;
+      await window.SmartLearnAPI.courses.remove(courseId);
+      alert('Course deleted.');
+      await loadCourses();
+      renderTeacherSection();
+    }
+
+    // ==========================================
+    // 6. TEACHER QUIZ BUILDER & RESULTS (Issue 19)
+    // ==========================================
+    function setupQuizBuilder() {
+      const container = document.getElementById('builderQuestionsContainer');
+      const addBtn = document.getElementById('btnAddQuestion');
+      if (!container || !addBtn) return;
+
+      addBtn.addEventListener('click', () => {
+        addQuestionBlock();
+      });
+
+      // Add first question initially
+      addQuestionBlock();
+
+      // Submit Quiz Builder Form
+      const form = document.getElementById('teacherQuizBuilderForm');
+      if (form) {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const courseId = parseInt(document.getElementById('quizTargetCourseSelect').value, 10);
+          const title = document.getElementById('builderQuizTitle').value.trim();
+          const description = document.getElementById('builderQuizDesc').value.trim();
+
+          const questionCards = container.querySelectorAll('.builder-question-card');
+          if (questionCards.length === 0) {
+            alert('Please add at least one question.');
+            return;
+          }
+
+          const questions = [];
+          for (let i = 0; i < questionCards.length; i++) {
+            const card = questionCards[i];
+            const qText = card.querySelector('.builder-q-text').value.trim();
+            const qExplanation = card.querySelector('.builder-q-exp').value.trim();
+            const optionRows = card.querySelectorAll('.builder-option-row');
+
+            if (optionRows.length < 2) {
+              alert(`Question ${i + 1} must have at least 2 options.`);
+              return;
+            }
+
+            const options = [];
+            let hasCorrect = false;
+
+            optionRows.forEach((row, oIdx) => {
+              const optText = row.querySelector('.builder-opt-text').value.trim();
+              const isCorrect = row.querySelector('.builder-opt-correct').checked;
+              if (isCorrect) hasCorrect = true;
+              options.push({ text: optText, is_correct: isCorrect });
+            });
+
+            if (!hasCorrect) {
+              alert(`Please select the correct answer for Question ${i + 1}.`);
+              return;
+            }
+
+            questions.push({
+              text: qText,
+              explanation: qExplanation || undefined,
+              options
+            });
+          }
+
+          const quizPayload = {
+            title,
+            description: description || undefined,
+            questions
+          };
+
+          const res = await window.SmartLearnAPI.quizzes.create(courseId, quizPayload);
+          alert('Quiz successfully published and added to course syllabus!');
+          form.reset();
+          container.innerHTML = '';
+          builderQuestionIndex = 0;
+          addQuestionBlock();
+          populateTeacherResultsSelect();
+        });
+      }
+    }
+
+    function addQuestionBlock() {
+      const container = document.getElementById('builderQuestionsContainer');
+      const qIdx = builderQuestionIndex++;
+
+      const div = document.createElement('div');
+      div.className = 'card p-3 border rounded-4 bg-light builder-question-card';
+      div.dataset.qindex = qIdx;
+
+      div.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="badge bg-secondary">Question</span>
+          <button type="button" class="btn btn-outline-danger btn-sm rounded-pill py-0 px-2 btn-remove-q">
+            <i class="bi bi-trash me-1"></i>Remove
+          </button>
+        </div>
+        <div class="mb-2">
+          <input type="text" class="form-control form-control-custom builder-q-text" placeholder="Enter question prompt..." required minlength="3">
+        </div>
+        <div class="mb-3">
+          <input type="text" class="form-control form-control-sm builder-q-exp" placeholder="Optional explanation for students...">
+        </div>
+        <div class="small fw-bold text-muted mb-2">Answer Options (Pick 1 correct answer):</div>
+        <div class="builder-options-container d-flex flex-column gap-2 mb-2">
+          <!-- Initial 2 Options -->
+          <div class="d-flex align-items-center gap-2 builder-option-row">
+            <input class="form-check-input builder-opt-correct" type="radio" name="builder_correct_${qIdx}" checked title="Mark as correct answer">
+            <input type="text" class="form-control form-control-sm builder-opt-text" placeholder="Option 1" required>
+          </div>
+          <div class="d-flex align-items-center gap-2 builder-option-row">
+            <input class="form-check-input builder-opt-correct" type="radio" name="builder_correct_${qIdx}" title="Mark as correct answer">
+            <input type="text" class="form-control form-control-sm builder-opt-text" placeholder="Option 2" required>
+          </div>
+        </div>
+        <div>
+          <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill btn-add-opt">
+            <i class="bi bi-plus me-1"></i>Add Option
+          </button>
+        </div>
+      `;
+
+      // Remove Question Handler
+      div.querySelector('.btn-remove-q').addEventListener('click', () => {
+        const total = container.querySelectorAll('.builder-question-card').length;
+        if (total <= 1) {
+          alert('You must have at least one question.');
+          return;
+        }
+        div.remove();
+      });
+
+      // Add Option Handler
+      div.querySelector('.btn-add-opt').addEventListener('click', () => {
+        const optContainer = div.querySelector('.builder-options-container');
+        const rows = optContainer.querySelectorAll('.builder-option-row');
+        if (rows.length >= 6) {
+          alert('Maximum 6 options allowed per question.');
+          return;
+        }
+        const optRow = document.createElement('div');
+        optRow.className = 'd-flex align-items-center gap-2 builder-option-row';
+        optRow.innerHTML = `
+          <input class="form-check-input builder-opt-correct" type="radio" name="builder_correct_${qIdx}" title="Mark as correct answer">
+          <input type="text" class="form-control form-control-sm builder-opt-text" placeholder="Option ${rows.length + 1}" required>
+          <button type="button" class="btn btn-sm text-danger p-0" onclick="this.parentElement.remove()" title="Delete option"><i class="bi bi-x-circle"></i></button>
+        `;
+        optContainer.appendChild(optRow);
+      });
+
+      container.appendChild(div);
+    }
+
+    async function populateTeacherResultsSelect() {
+      const select = document.getElementById('teacherResultsQuizSelect');
+      if (!select) return;
+
+      select.innerHTML = allCourses.map(c => `<option value="${c.id}">${c.title} Quiz Results</option>`).join('');
+      select.onchange = () => loadTeacherQuizResults(select.value);
+
+      if (allCourses.length > 0) {
+        loadTeacherQuizResults(allCourses[0].id);
+      }
+    }
+
+    async function loadTeacherQuizResults(quizId) {
+      const tbody = document.getElementById('teacherResultsTableBody');
+      if (!tbody) return;
+
+      const res = await window.SmartLearnAPI.quizzes.getResults(quizId);
+      const results = (res.success && Array.isArray(res.data)) ? res.data : [];
+
+      if (results.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No student attempts recorded for this quiz yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = results.map(r => {
+        const pct = Math.round(r.percentage || 0);
+        const isPassed = pct >= 60;
+        return `
+          <tr>
+            <td class="fw-bold">#${r.id || r.attempt_id}</td>
+            <td>Student (${r.student_name || 'Enrolled Student'})</td>
+            <td>${r.score} / ${r.total}</td>
+            <td><span class="fw-bold ${isPassed ? 'text-success' : 'text-warning'}">${pct}%</span></td>
+            <td class="text-muted small">${r.date || (r.submitted_at ? new Date(r.submitted_at).toLocaleDateString() : 'Today')}</td>
+            <td><span class="badge ${isPassed ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'} rounded-pill">${isPassed ? 'Mastered' : 'Needs Practice'}</span></td>
+          </tr>
+        `;
+      }).join('');
     }
   </script>
 </body>
