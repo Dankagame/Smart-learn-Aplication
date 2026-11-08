@@ -1,0 +1,18 @@
+# Version control
+.git
+.gitignore
+
+# Environment variables
+.env
+.env.*
+
+# Logs
+*.log
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# IDE settings
+.vscode/
+.idea/
