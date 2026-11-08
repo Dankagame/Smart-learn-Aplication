@@ -15,6 +15,7 @@ SmartLearn is a lightweight **web application** that runs in any web browser, so
 - [Technology Stack](#technology-stack)
 - [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
+- [Running with Docker Compose](#running-with-docker-compose)
 - [How to Run Locally](#how-to-run-locally)
 - [Running the Tests](#running-the-tests)
 - [Security Practices](#security-practices)
@@ -112,6 +113,65 @@ Smart-learn-Aplication/
 ├── .gitignore
 ├── LICENSE
 └── README.md
+```
+
+## Running with Docker Compose
+
+SmartLearn is fully containerized with **Docker** and orchestrated using **Docker Compose**. This single command starts the PostgreSQL 16 database, the FastAPI backend, and the Nginx frontend reverse proxy on an isolated bridge network with persistent volume storage.
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / macOS) or Docker Engine & Docker Compose (Linux)
+
+### 1. Start all services
+
+From the repository root:
+
+```bash
+docker compose up --build
+```
+
+Docker Compose will automatically:
+1. Build the production multi-stage backend image (`Dockerfile`) running as non-root user `appuser`.
+2. Build the lightweight production Nginx frontend image (`frontend/Dockerfile`) running as non-root user `nginx`.
+3. Pull and launch PostgreSQL 16 Alpine (`postgres:16-alpine`).
+4. Initialize the isolated bridge network `smartlearn_network` and persistent data volume `smartlearn_postgres_data`.
+5. Wait for PostgreSQL and backend healthchecks before routing traffic.
+
+### 2. Access the Application
+
+| Service | URL | Notes |
+|---|---|---|
+| **Frontend Web App** | [http://localhost:5500](http://localhost:5500) | Complete learning portal, login, and dashboard (via Nginx reverse proxy) |
+| **Backend REST API** | [http://localhost:8000](http://localhost:8000) | FastAPI ASGI server |
+| **Interactive API Docs (Swagger)** | [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive OpenAPI documentation & testing |
+| **API Health Check** | [http://localhost:8000/health](http://localhost:8000/health) | Reports status and database connection state |
+| **PostgreSQL Database** | `localhost:5432` | User: `smartlearn_user`, DB: `smartlearn_db` |
+
+### 3. Stop services
+
+To stop all containers:
+
+```bash
+docker compose down
+```
+
+To stop containers and reset the persistent database volume:
+
+```bash
+docker compose down -v
+```
+
+### 4. Build Individual Images
+
+To build and run the services independently:
+
+```bash
+# Build backend container
+docker build -t smartlearn-api .
+
+# Build frontend container
+docker build -t smartlearn-frontend ./frontend
 ```
 
 ## How to Run Locally
