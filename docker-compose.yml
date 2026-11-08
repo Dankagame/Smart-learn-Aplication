@@ -1,31 +1,18 @@
-# ==============================================================================
-# SmartLearn Application - Docker Compose Orchestration (Formative 2)
-# ==============================================================================
-# Architecture:
-#   - db:       PostgreSQL 16 Alpine with persistent data volume & healthcheck
-#   - backend:  FastAPI REST API with non-root user, connected to PostgreSQL
-#   - frontend: Nginx static server & reverse proxy with non-root user
-# ==============================================================================
-
 services:
-  # ----------------------------------------------------------------------------
-  # 1. PostgreSQL Database Service
-  # ----------------------------------------------------------------------------
   db:
     image: postgres:16-alpine
     container_name: smartlearn-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-smartlearn_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smartlearn_password}
-      POSTGRES_DB: ${POSTGRES_DB:-smartlearn_db}
-      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_USER: smartlearn_user
+      POSTGRES_PASSWORD: smartlearn_password
+      POSTGRES_DB: smartlearn_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smartlearn_user} -d ${POSTGRES_DB:-smartlearn_db}"]
+      test: ["CMD-SHELL", "pg_isready -U smartlearn_user -d smartlearn_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,9 +20,6 @@ services:
     networks:
       - smartlearn-network
 
-  # ----------------------------------------------------------------------------
-  # 2. FastAPI Backend Service
-  # ----------------------------------------------------------------------------
   backend:
     build:
       context: .
@@ -49,11 +33,11 @@ services:
       APP_NAME: "SmartLearn API"
       ENVIRONMENT: "production"
       DEBUG: "false"
-      DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-smartlearn_user}:${POSTGRES_PASSWORD:-smartlearn_password}@db:5432/${POSTGRES_DB:-smartlearn_db}"
-      SECRET_KEY: "${SECRET_KEY:-smartlearn-production-super-secret-key-32chars-minimum}"
+      DATABASE_URL: "postgresql+psycopg://smartlearn_user:smartlearn_password@db:5432/smartlearn_db"
+      SECRET_KEY: "smartlearn-secret-key-for-dev-and-testing"
       JWT_ALGORITHM: "HS256"
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
-      CORS_ORIGINS: "http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080,http://127.0.0.1:8080,http://localhost:80,http://localhost"
+      CORS_ORIGINS: "http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080,http://localhost:80"
     ports:
       - "8000:8000"
     healthcheck:
@@ -65,9 +49,6 @@ services:
     networks:
       - smartlearn-network
 
-  # ----------------------------------------------------------------------------
-  # 3. Static Nginx Frontend & Reverse Proxy Service
-  # ----------------------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
@@ -89,18 +70,9 @@ services:
     networks:
       - smartlearn-network
 
-# ------------------------------------------------------------------------------
-# Persistent Storage Volumes
-# ------------------------------------------------------------------------------
 volumes:
   postgres_data:
-    name: smartlearn_postgres_data
-    driver: local
 
-# ------------------------------------------------------------------------------
-# Isolated Bridge Network for Secure Service-to-Service Communication
-# ------------------------------------------------------------------------------
 networks:
   smartlearn-network:
-    name: smartlearn_network
     driver: bridge
