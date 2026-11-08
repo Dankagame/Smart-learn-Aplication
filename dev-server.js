@@ -356,10 +356,108 @@ async function handleRequest(req, res) {
     return;
   }
 
-  // 4. Quizzes API
-  if (pathname.startsWith('/api/quizzes/') && pathname.endsWith('/submit') && req.method === 'POST') {
+    // 3.5 Course Materials & Quizzes API
+  if ((pathname.includes('/courses/') && pathname.endsWith('/materials')) && req.method === 'GET') {
     const parts = pathname.split('/');
-    const quizId = parseInt(parts[2] === 'quizzes' ? parts[3] : parts[2], 10) || 1;
+    const cIdx = parts.indexOf('courses');
+    const courseId = parseInt(parts[cIdx + 1], 10);
+    const course = courses.find(c => c.id === courseId) || courses[0];
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(course.materials || []));
+    return;
+  }
+
+  if ((pathname.includes('/courses/') && pathname.endsWith('/materials')) && req.method === 'POST') {
+    const parts = pathname.split('/');
+    const cIdx = parts.indexOf('courses');
+    const courseId = parseInt(parts[cIdx + 1], 10);
+    const body = await readBody(req);
+    const course = courses.find(c => c.id === courseId);
+    if (!course) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ detail: 'Course not found' }));
+      return;
+    }
+    course.materials = course.materials || [];
+    const newMaterial = {
+      id: course.materials.length + 101,
+      course_id: courseId,
+      title: body.title || 'Course Notes',
+      content: body.content || body.notes || '',
+      link_url: body.link_url || body.link || '#',
+      type: 'PDF',
+      size: '140 KB'
+    };
+    course.materials.push(newMaterial);
+    course.notesCount = course.materials.length;
+    res.writeHead(201, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(newMaterial));
+    return;
+  }
+
+  if ((pathname.includes('/courses/') && pathname.endsWith('/quizzes')) && req.method === 'GET') {
+    const parts = pathname.split('/');
+    const cIdx = parts.indexOf('courses');
+    const courseId = parseInt(parts[cIdx + 1], 10);
+    const courseQuizzes = Object.values(quizzes).filter(q => q.courseId === courseId);
+    const result = courseQuizzes.length > 0 ? courseQuizzes : [
+      { id: 1, courseId: courseId, title: "Curriculum Diagnostic Quiz", questions: [ { id: 1 } ] }
+    ];
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result.map(q => ({
+      id: q.id,
+      title: q.title,
+      course_id: q.courseId,
+      question_count: q.questions ? q.questions.length : 3
+    }))));
+    return;
+  }
+
+  if ((pathname.includes('/courses/') && pathname.endsWith('/quizzes')) && req.method === 'POST') {
+    const parts = pathname.split('/');
+    const cIdx = parts.indexOf('courses');
+    const courseId = parseInt(parts[cIdx + 1], 10);
+    const body = await readBody(req);
+    const newQuizId = Object.keys(quizzes).length + 1;
+    const formattedQuestions = (body.questions || []).map((q, idx) => {
+      const opts = (q.options || []).map((opt, oIdx) => ({
+        id: oIdx + 1,
+        text: typeof opt === 'object' ? opt.text : opt,
+        is_correct: typeof opt === 'object' ? !!opt.is_correct : false
+      }));
+      const correctIdx = opts.findIndex(o => o.is_correct);
+      return {
+        id: idx + 1,
+        question: q.text || q.question,
+        text: q.text || q.question,
+        options: opts,
+        correctIndex: correctIdx >= 0 ? correctIdx : 0,
+        explanation: q.explanation || "National exam syllabus review."
+      };
+    });
+    quizzes[newQuizId] = {
+      id: newQuizId,
+      courseId: courseId,
+      title: body.title || `Quiz ${newQuizId}`,
+      description: body.description || '',
+      questions: formattedQuestions
+    };
+    res.writeHead(201, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      id: newQuizId,
+      course_id: courseId,
+      title: quizzes[newQuizId].title,
+      description: quizzes[newQuizId].description,
+      questions: formattedQuestions
+    }));
+    return;
+  }
+
+  // 4. Quizzes API
+  if (pathname.includes('/quizzes/') && pathname.endsWith('/submit') && req.method === 'POST') {
+    const parts = pathname.split('/');
+    const qIdx = parts.indexOf('quizzes');
+    const quizId = parseInt(parts[qIdx + 1], 10) || 1;
     const body = await readBody(req);
     const answers = body.answers || {};
     const quiz = quizzes[quizId] || quizzes[1];
@@ -368,7 +466,7 @@ async function handleRequest(req, res) {
     const feedback = [];
 
     // Support list [ { question_id, option_id } ] or object answers
-    quiz.questions.forEach((q, idx) => {
+    (quiz.questions || []).forEach((q, idx) => {
       let selected = -1;
       if (Array.isArray(answers)) {
         const found = answers.find(a => a.question_id === q.id || a.question_id === (idx + 1));
@@ -389,7 +487,8 @@ async function handleRequest(req, res) {
       });
     });
 
-    const percentage = Math.round((score / quiz.questions.length) * 100);
+    const totalQuestions = quiz.questions ? quiz.questions.length : 1;
+    const percentage = Math.round((score / totalQuestions) * 100);
     const attempt = {
       attempt_id: userResults.length + 1,
       id: userResults.length + 1,
@@ -397,7 +496,7 @@ async function handleRequest(req, res) {
       quiz_title: quiz.title,
       quizTitle: quiz.title,
       score,
-      total: quiz.questions.length,
+      total: totalQuestions,
       percentage,
       submitted_at: new Date().toISOString(),
       date: new Date().toISOString().split('T')[0],
@@ -408,7 +507,7 @@ async function handleRequest(req, res) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       score,
-      total: quiz.questions.length,
+      total: totalQuestions,
       percentage,
       feedback,
       attempt
@@ -416,17 +515,35 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if ((pathname.startsWith('/quizzes/') || pathname.startsWith('/api/quizzes/')) && req.method === 'GET') {
-    const quizId = parseInt(pathname.split('/')[3], 10);
+  // Teacher Quiz Results API (Issue 19)
+  if (pathname.includes('/quizzes/') && pathname.endsWith('/results') && req.method === 'GET') {
+    const parts = pathname.split('/');
+    const qIdx = parts.indexOf('quizzes');
+    const quizId = parseInt(parts[qIdx + 1], 10) || 1;
+    const attempts = userResults.filter(r => r.quiz_id === quizId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(attempts.length > 0 ? attempts : userResults.slice(0, 3)));
+    return;
+  }
+
+  // Single Quiz GET (Issue 16)
+  if ((pathname.startsWith('/quizzes/') || pathname.startsWith('/api/quizzes/')) && !pathname.endsWith('/submit') && !pathname.endsWith('/results') && !pathname.endsWith('/answer-key') && req.method === 'GET') {
+    const parts = pathname.split('/');
+    const qIdx = parts.indexOf('quizzes');
+    const quizId = parseInt(parts[qIdx + 1], 10) || 1;
     const quiz = quizzes[quizId] || quizzes[1];
-    // Strip correct answers when sending to students
     const studentQuiz = {
       id: quiz.id,
       title: quiz.title,
-      questions: quiz.questions.map(q => ({
+      description: quiz.description,
+      questions: (quiz.questions || []).map(q => ({
         id: q.id,
-        question: q.question,
-        options: q.options
+        text: q.question || q.text,
+        question: q.question || q.text,
+        options: (q.options || []).map((opt, oIdx) => ({
+          id: typeof opt === 'object' ? (opt.id || oIdx + 1) : (oIdx + 1),
+          text: typeof opt === 'object' ? opt.text : opt
+        }))
       }))
     };
     res.writeHead(200, { 'Content-Type': 'application/json' });

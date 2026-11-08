@@ -223,6 +223,7 @@
     },
     getById: (id) => http.get(`/courses/${id}`),
     getMaterials: (courseId) => http.get(`/courses/${courseId}/materials`),
+    addMaterial: (courseId, materialData) => http.post(`/courses/${courseId}/materials`, materialData),
     create: (courseData) => http.post('/courses', courseData),
     update: (id, courseData) => http.patch(`/courses/${id}`, courseData),
     remove: (id) => http.delete(`/courses/${id}`)
@@ -236,6 +237,7 @@
     getById: (quizId) => http.get(`/quizzes/${quizId}`),
     create: (courseId, quizData) => http.post(`/courses/${courseId}/quizzes`, quizData),
     getAnswerKey: (quizId) => http.get(`/quizzes/${quizId}/answer-key`),
+    getResults: (quizId) => http.get(`/quizzes/${quizId}/results`),
     submit: (quizId, answers) => http.post(`/quizzes/${quizId}/submit`, { answers }),
     remove: (quizId) => http.delete(`/quizzes/${quizId}`)
   };
