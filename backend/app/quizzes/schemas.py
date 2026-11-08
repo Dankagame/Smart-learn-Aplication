@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, Field, model_validator
 
-from app.quizzes.models import Choice, Quiz
+from app.quizzes.models import Choice, Question, Quiz, QuizAttempt
 
 MIN_OPTIONS = 2
 MAX_OPTIONS = 6
@@ -149,3 +149,86 @@ class QuizWithAnswers(QuizSummary):
 def ordered(choices: list[Choice]) -> list[Choice]:
     return sorted(choices, key=lambda choice: choice.id)
 
+
+
+class AnswerSubmit(BaseModel):
+    question_id: int = Field(gt=0)
+    option_id: int = Field(gt=0)
+
+
+class QuizSubmission(BaseModel):
+    answers: list[AnswerSubmit] = Field(min_length=1, max_length=MAX_QUESTIONS)
+
+    @model_validator(mode="after")
+    def one_answer_per_question(self) -> "QuizSubmission":
+        question_ids = [answer.question_id for answer in self.answers]
+        if len(set(question_ids)) != len(question_ids):
+            raise ValueError("Each question can only be answered once")
+        return self
+
+
+class QuestionFeedback(BaseModel):
+    question_id: int
+    position: int
+    question_text: str
+    selected_option_id: int | None
+    correct_option_id: int
+    is_correct: bool
+    explanation: str | None
+
+
+class AttemptSummary(BaseModel):
+    attempt_id: int
+    quiz_id: int
+    quiz_title: str
+    course_id: int
+    course_title: str
+    score: int
+    total: int
+    percentage: float
+    submitted_at: datetime
+
+    @classmethod
+    def from_attempt(cls, attempt: QuizAttempt) -> "AttemptSummary":
+        return cls(
+            attempt_id=attempt.id,
+            quiz_id=attempt.quiz_id,
+            quiz_title=attempt.quiz.title,
+            course_id=attempt.quiz.course_id,
+            course_title=attempt.quiz.course.title,
+            score=attempt.score,
+            total=attempt.total_questions,
+            percentage=percentage(attempt.score, attempt.total_questions),
+            submitted_at=attempt.submitted_at,
+        )
+
+
+class AttemptResult(AttemptSummary):
+    feedback: list[QuestionFeedback]
+
+    @classmethod
+    def from_attempt(cls, attempt: QuizAttempt) -> "AttemptResult":
+        selected = {answer.question_id: answer.choice_id for answer in attempt.answers}
+        return cls(
+            **AttemptSummary.from_attempt(attempt).model_dump(),
+            feedback=[
+                QuestionFeedback(
+                    question_id=question.id,
+                    position=question.position,
+                    question_text=question.text,
+                    selected_option_id=selected.get(question.id),
+                    correct_option_id=correct_choice(question).id,
+                    is_correct=selected.get(question.id) == correct_choice(question).id,
+                    explanation=question.explanation,
+                )
+                for question in attempt.quiz.questions
+            ],
+        )
+
+
+def percentage(score: int, total: int) -> float:
+    return round(score * 100 / total, 1) if total else 0.0
+
+
+def correct_choice(question: Question) -> Choice:
+    return next(choice for choice in question.choices if choice.is_correct)
