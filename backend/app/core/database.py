@@ -3,13 +3,11 @@ from collections.abc import Generator
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from app.core.config import get_settings
+from app.core.config import get_settings, is_sqlite_url
 
 settings = get_settings()
 
-connect_args = (
-    {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-)
+connect_args = {"check_same_thread": False} if is_sqlite_url(settings.database_url) else {}
 
 engine = create_engine(
     settings.database_url,
