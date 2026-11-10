@@ -23,3 +23,9 @@ def test_health_reports_unavailable_database(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "database": "unavailable"}
+
+
+def test_health_rejects_post_requests():
+    response = TestClient(app).post("/health")
+
+    assert response.status_code == 404
