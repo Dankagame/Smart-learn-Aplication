@@ -1,5 +1,7 @@
 # SmartLearn
 
+[![CI](https://github.com/Dankagame/Smart-learn-Aplication/actions/workflows/ci.yml/badge.svg)](https://github.com/Dankagame/Smart-learn-Aplication/actions/workflows/ci.yml)
+
 > **Study smarter, even on low data.**
 
 SmartLearn is a lightweight **web application** that runs in any web browser, so there is no app to download or install. Secondary school students in Rwanda and across East Africa can use it to find curriculum-aligned study materials and practise with quizzes before their national exams. Teachers get a simple, low-cost way to share notes and quizzes with all of their students.
@@ -15,7 +17,7 @@ SmartLearn is a lightweight **web application** that runs in any web browser, so
 - [Technology Stack](#technology-stack)
 - [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
-- [Running with Docker Compose](#running-with-docker-compose)
+- [Run with Docker Compose](#run-with-docker-compose)
 - [How to Run Locally](#how-to-run-locally)
 - [Running the Tests](#running-the-tests)
 - [Linting and Code Style](#linting-and-code-style)
@@ -73,7 +75,9 @@ SmartLearn gives students **one organized place** to find curriculum-aligned lea
 | | pytest | Simple, powerful framework for unit and API tests. |
 | | Ruff | Fast linter and code formatter that keeps the Python code clean and consistent. |
 | **Tools & DevOps** | Git, GitHub, GitHub Projects | Version control, code review through pull requests, and agile planning. |
-| | *Planned:* Docker, GitHub Actions, Terraform, cloud deployment | Containerization, CI/CD automation, infrastructure as code, and hosting, added later in the course. |
+| | Docker, Docker Compose | Each service runs in its own container, so the whole app starts the same way on every machine. |
+| | GitHub Actions, GitHub Container Registry | CI runs lint, tests, and Docker builds on every push and pull request, then publishes the images. |
+| | *Planned:* Terraform, cloud deployment | Infrastructure as code and hosting, added later in the course. |
 
 ## Architecture Overview
 
@@ -118,74 +122,87 @@ Smart-learn-Aplication/
 └── README.md
 ```
 
-## Running with Docker Compose
+## Run with Docker Compose
 
-SmartLearn is fully containerized with **Docker** and orchestrated using **Docker Compose**. This single command starts the PostgreSQL 16 database, the FastAPI backend, and the Nginx frontend reverse proxy on an isolated bridge network with persistent volume storage.
+This is the quickest way to start SmartLearn. One command starts the database, the backend API, and the frontend, each in its own container. You don't need Python, PostgreSQL, or anything else installed, only Docker.
 
 ### Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / macOS) or Docker Engine & Docker Compose (Linux)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) on Windows or macOS, or Docker Engine with the Compose plugin on Linux
+- Docker must be running before you use the commands below. Check with `docker compose version`.
 
-### 1. Configure environment variables and start services
-
-Copy the example environment configuration into `.env` (Docker Compose automatically reads this file):
+### Quick start
 
 ```bash
-# On Linux / macOS / Git Bash
+git clone https://github.com/Dankagame/Smart-learn-Aplication.git
+cd Smart-learn-Aplication
 cp .env.example .env
-
-# On Windows PowerShell
-Copy-Item .env.example .env
-```
-
-Review the values in `.env` if you want to customize your database username or password. Then run:
-
-```bash
 docker compose up --build
 ```
 
-Docker Compose will automatically:
-1. Build the production multi-stage backend image (`Dockerfile`) running as non-root user `appuser`.
-2. Build the lightweight production Nginx frontend image (`frontend/Dockerfile`) running as non-root user `nginx`.
-3. Pull and launch PostgreSQL 16 Alpine (`postgres:16-alpine`).
-4. Initialize the isolated bridge network `smartlearn-network` and persistent data volume `postgres_data`.
-5. Wait for PostgreSQL and backend healthchecks before routing traffic.
+On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
 
-### 2. Access the Application
+The first build takes a few minutes. When the logs settle down, open **http://localhost:5500**.
 
-| Service | URL | Notes |
-|---|---|---|
-| **Frontend Web App** | [http://localhost:5500](http://localhost:5500) | Complete learning portal, login, and dashboard (via Nginx reverse proxy) |
-| **Backend REST API** | [http://localhost:8000](http://localhost:8000) | FastAPI ASGI server |
-| **Interactive API Docs (Swagger)** | [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive OpenAPI documentation & testing |
-| **API Health Check** | [http://localhost:8000/health](http://localhost:8000/health) | Reports status and database connection state |
-| **PostgreSQL Database** | `localhost:5432` | User: `smartlearn_user`, DB: `smartlearn_db` |
+Before sharing or deploying the app, change `POSTGRES_PASSWORD` and `SECRET_KEY` in `.env`. Docker Compose reads this file automatically, and Git ignores it, so your secrets stay on your machine.
 
-### 3. Stop services
+### Services
 
-To stop all containers:
+`docker-compose.yml` defines three services:
+
+| Service | Image | Container | What it does |
+|---------|-------|-----------|--------------|
+| `db` | `postgres:16-alpine` | `smartlearn-db` | PostgreSQL 16 database that stores users, courses, quizzes, and results. |
+| `backend` | Built from `Dockerfile` | `smartlearn-backend` | FastAPI REST API, run by Uvicorn as a non-root user (`appuser`). It connects to `db` with `DATABASE_URL=postgresql+psycopg://...@db:5432/...`. |
+| `frontend` | Built from `frontend/Dockerfile` | `smartlearn-frontend` | Nginx serves the HTML, CSS, and JavaScript, and forwards API calls such as `/auth`, `/courses`, `/quizzes`, `/me`, and `/health` to `backend`. |
+
+The services start in order, and each waits until the one it depends on is healthy:
+
+1. `db` is healthy when `pg_isready` succeeds.
+2. `backend` starts after `db`. It is healthy when `GET /health` responds.
+3. `frontend` starts after `backend`. It is healthy when `/nginx-health` responds.
+
+### Ports
+
+| Open on your computer | Goes to | Use it for |
+|-----------------------|---------|------------|
+| [http://localhost:5500](http://localhost:5500) (also [http://localhost](http://localhost) on port 80) | `frontend` port 8080 | The web app |
+| [http://localhost:8000](http://localhost:8000) | `backend` port 8000 | The REST API directly |
+| [http://localhost:8000/docs](http://localhost:8000/docs) | `backend` port 8000 | Interactive API docs (Swagger) |
+| [http://localhost:8000/health](http://localhost:8000/health) | `backend` port 8000 | Health check, which also reports the database connection |
+| `localhost:5432` | `db` port 5432 | Connecting a database tool such as pgAdmin or DBeaver, with the user and password from `.env` |
+
+If one of these ports is already used on your computer, `docker compose up` fails with "port is already allocated". Stop the other program, or change the left-hand port in `docker-compose.yml` (for example `"5501:8080"`).
+
+### Network
+
+All three services join one bridge network, `smartlearn-network`. Inside this network, containers find each other by **service name**: the backend connects to the database at `db:5432`, and Nginx forwards requests to `backend:8000`. The network keeps the containers' traffic separate from other containers on your machine. Only the ports listed above are opened to your computer.
+
+### Volume
+
+The database files live in a named volume, `postgres_data`, mounted at `/var/lib/postgresql/data` in the `db` container. Because the data is stored in the volume and not in the container, it stays when you stop, rebuild, or remove the containers. `docker compose down -v` is the only command here that deletes it.
+
+### Useful commands
+
+| Command | What it does |
+|---------|--------------|
+| `docker compose up --build` | Build the images and start everything, with logs shown in your terminal |
+| `docker compose up -d --build` | The same, but in the background |
+| `docker compose ps` | Show each container's status and health |
+| `docker compose logs -f backend` | Follow the logs of one service (`db`, `backend`, or `frontend`) |
+| `docker compose restart backend` | Restart one service |
+| `docker compose exec db psql -U smartlearn_user -d smartlearn_db` | Open a SQL shell in the database. Use your own values if you changed them in `.env` |
+| `docker compose down` | Stop and remove the containers. The database data is kept |
+| `docker compose down -v` | Stop the containers **and delete the database volume**, for a fresh start |
+
+### Build images on their own
 
 ```bash
-docker compose down
-```
-
-To stop containers and reset the persistent database volume:
-
-```bash
-docker compose down -v
-```
-
-### 4. Build Individual Images
-
-To build and run the services independently:
-
-```bash
-# Build backend container
-docker build -t smartlearn-api .
-
-# Build frontend container
+docker build -t smartlearn-backend .
 docker build -t smartlearn-frontend ./frontend
 ```
+
+CI also publishes ready-made images to GitHub Container Registry. See [Published Docker images](#published-docker-images).
 
 ## How to Run Locally
 
@@ -310,7 +327,19 @@ Please make sure both `ruff check .` and `ruff format --check .` pass before ope
 
 ## Continuous Integration
 
-Our GitHub Actions pipeline lives in `.github/workflows/ci.yml`. It runs on every push to any branch except `main`, and on every pull request into `main`.
+Our GitHub Actions pipeline lives in `.github/workflows/ci.yml`. The badge at the top of this README shows whether the latest run passed.
+
+### When it runs
+
+| Event | What runs |
+|-------|-----------|
+| Push to any branch except `main` | Lint, tests, then the Docker builds. The images are **published** to GitHub Container Registry |
+| Pull request into `main` | Lint, tests, then the Docker builds. The images are **built only**, not published |
+| Push directly to `main` | Nothing, because direct pushes are blocked. Code only reaches `main` through a pull request that already passed CI |
+
+If you push new commits while an older run of the same branch is still going, the older run is cancelled so only the latest code is checked.
+
+### What it checks
 
 | Job | What it does |
 |-----|--------------|
@@ -318,7 +347,7 @@ Our GitHub Actions pipeline lives in `.github/workflows/ci.yml`. It runs on ever
 | **Test** | Runs the pytest suite with coverage on Python 3.12 and 3.13 (a version matrix) |
 | **Build and publish Docker images** | Builds the backend and frontend images and publishes them to GitHub Container Registry. It starts only after Lint and Test pass |
 
-If linting, any test, or a Docker build fails, the pipeline fails, and the pull request cannot be merged. To keep runs fast, pip downloads are cached based on `backend/requirements.txt`, and Docker layers are cached with the GitHub Actions cache.
+If linting, any test, or a Docker build fails, the pipeline fails, and the pull request cannot be merged (see [Branch Protection Rules](#branch-protection-rules)). Click the ❌ next to a failed check on the pull request to open its log and see what broke. To keep runs fast, pip downloads are cached based on `backend/requirements.txt`, and Docker layers are cached with the GitHub Actions cache.
 
 ### Published Docker images
 
@@ -357,21 +386,35 @@ We follow a **"shift left"** approach: security is built in from the first commi
 - **Comprehensive `.gitignore`:** organized by category to exclude secrets, virtual environments, caches, databases, logs, IDE files, and future Terraform state.
 - **Password hashing:** passwords are hashed with bcrypt and are never stored or returned as plain text.
 - **Token authentication:** protected endpoints require a JWT token, and role checks stop students from using teacher actions (and the reverse).
-- **Protected `main` branch:** every change is reviewed before it is merged (see below).
+- **Protected `main` branch:** every change is reviewed and must pass CI before it is merged (see below).
 
 ## Branch Protection Rules
 
-The `main` branch is protected so that every change is reviewed before it reaches the main codebase.
+The `main` branch is protected by a GitHub **ruleset** (Settings → Rules → Rulesets → `main`), so every change is reviewed and must pass CI before it reaches the main codebase. The bypass list is empty, so the rules apply to everyone.
 
 | Rule | Why it matters |
 |------|----------------|
 | Require a pull request before merging | Nobody can push directly to `main`. Every change goes through a PR, so there is a clear record of what changed and why. |
 | Require 1 approval | Another team member must review the code. This catches bugs early and makes sure both of us understand all of the code. |
 | Dismiss stale approvals when new commits are pushed | If code changes after approval, it must be reviewed again, so unreviewed code cannot slip in. |
-| Require status checks to pass before merging | Automated checks must pass before merging. Our CI pipeline runs linting, tests, and the Docker builds here, so broken code cannot reach `main`. |
+| Require status checks to pass before merging | The CI checks listed below must all pass before a pull request can be merged, so broken code cannot reach `main`. |
 | Require branches to be up to date before merging | A PR must include the latest `main`, so it is checked against the current code and hidden conflicts are avoided. |
 | Require conversation resolution before merging | Every review comment must be answered or fixed, so feedback is never ignored. |
 | Include administrators | The rules apply to everyone, including the repository owner, so there are no shortcuts. |
+| Block force pushes and deletion | Nobody can rewrite or delete the history of `main`. |
+
+### Required CI checks
+
+These four jobs from `.github/workflows/ci.yml` are **required status checks** on `main`. Each must be reported by **GitHub Actions** and must pass:
+
+| Required check | What has to pass |
+|----------------|------------------|
+| `Lint` | `ruff check .` and `ruff format --check .` |
+| `Test (Python 3.12)` | The full pytest suite on Python 3.12 |
+| `Test (Python 3.13)` | The full pytest suite on Python 3.13 |
+| `Build and publish Docker images` | The backend and frontend Docker images build successfully |
+
+If any check fails or hasn't finished, the **Merge** button stays blocked. Fix the problem, push to the same branch, and CI runs again automatically. If you rename a job in `ci.yml`, update the required check names in the ruleset too, or pull requests will wait forever for a check that no longer exists.
 
 ## Development Workflow
 
@@ -379,8 +422,9 @@ The `main` branch is protected so that every change is reviewed before it reache
 2. Create a branch from `main`, for example `feature/auth` or `issue-13-frontend-structure`.
 3. Commit small, meaningful changes with clear messages.
 4. Open a pull request with a description and `Closes #<issue-number>`.
-5. The other team member reviews the code, leaves comments, and approves it.
-6. Merge the PR and delete the branch. The linked issue closes and moves to **Done**.
+5. CI runs automatically on the pull request. Fix anything it reports until all checks are green.
+6. The other team member reviews the code, leaves comments, and approves it.
+7. Merge the PR and delete the branch. The linked issue closes and moves to **Done**.
 
 `.github/CODEOWNERS` automatically requests a review from the other team member on every pull request.
 
