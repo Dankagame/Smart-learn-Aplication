@@ -3,7 +3,6 @@ from functools import lru_cache
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 POSTGRES_DRIVER_PREFIX = "postgresql+psycopg://"
 POSTGRES_PLAIN_PREFIXES = ("postgres://", "postgresql://")
 
