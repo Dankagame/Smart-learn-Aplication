@@ -316,9 +316,30 @@ Our GitHub Actions pipeline lives in `.github/workflows/ci.yml`. It runs on ever
 |-----|--------------|
 | **Lint** | Sets up Python 3.12, installs the dependencies, then runs `ruff check .` and `ruff format --check .` |
 | **Test** | Runs the pytest suite with coverage on Python 3.12 and 3.13 (a version matrix) |
-| **Build Docker images** | Builds the backend and frontend images. It starts only after Lint and Test pass |
+| **Build and publish Docker images** | Builds the backend and frontend images and publishes them to GitHub Container Registry. It starts only after Lint and Test pass |
 
 If linting, any test, or a Docker build fails, the pipeline fails, and the pull request cannot be merged. To keep runs fast, pip downloads are cached based on `backend/requirements.txt`, and Docker layers are cached with the GitHub Actions cache.
+
+### Published Docker images
+
+On every push to a branch other than `main`, after Lint and Test pass, the pipeline publishes both images to **GitHub Container Registry (GHCR)**:
+
+| Image | Location |
+|-------|----------|
+| Backend | `ghcr.io/dankagame/smartlearn-backend` |
+| Frontend | `ghcr.io/dankagame/smartlearn-frontend` |
+
+Each image gets two tags from the commit it was built from: the full commit SHA (for example `ghcr.io/dankagame/smartlearn-backend:3f2c1a9...`) and a short one (`sha-3f2c1a9`). Pull requests only build the images, to check that they still build, and don't publish them.
+
+The pipeline logs in to GHCR with the built-in `GITHUB_TOKEN` secret, which GitHub creates for each run and which only works while that run lasts. No password is stored in the workflow file. The `docker` job gets `packages: write` permission so it can push.
+
+To pull an image, for example the one built from commit `3f2c1a9`:
+
+```bash
+docker pull ghcr.io/dankagame/smartlearn-backend:sha-3f2c1a9
+```
+
+New GHCR packages are private by default. To let anyone pull them without logging in, change the package visibility to public in each package's settings on GitHub.
 
 To check your work locally before pushing, run the same commands from the `backend` folder:
 
