@@ -37,7 +37,9 @@ def test_settings_normalize_postgres_url():
 
 
 def test_postgres_engine_loads_psycopg_dialect():
-    engine = create_engine(normalize_database_url("postgresql://user:pass@localhost:5432/smartlearn"))
+    engine = create_engine(
+        normalize_database_url("postgresql://user:pass@localhost:5432/smartlearn")
+    )
     assert engine.dialect.name == "postgresql"
     assert engine.dialect.driver == "psycopg"
     engine.dispose()

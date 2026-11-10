@@ -19,6 +19,7 @@ SmartLearn is a lightweight **web application** that runs in any web browser, so
 - [How to Run Locally](#how-to-run-locally)
 - [Running the Tests](#running-the-tests)
 - [Linting and Code Style](#linting-and-code-style)
+- [Continuous Integration](#continuous-integration)
 - [Security Practices](#security-practices)
 - [Branch Protection Rules](#branch-protection-rules)
 - [Development Workflow](#development-workflow)
@@ -281,7 +282,7 @@ pytest --cov=app --cov-report=term
 | `test_scoring.py` | The scoring function (unit tests) |
 | `test_health.py` | The `/health` endpoint |
 
-For now, we run the tests before every merge into `main`. In Formative 2, our CI pipeline will run them automatically on every pull request as a required status check.
+These tests also run automatically in our CI pipeline. See [Continuous Integration](#continuous-integration).
 
 ## Linting and Code Style
 
@@ -307,6 +308,26 @@ ruff format .           # reformat the code
 
 Please make sure both `ruff check .` and `ruff format --check .` pass before opening a pull request.
 
+## Continuous Integration
+
+Our GitHub Actions pipeline lives in `.github/workflows/ci.yml`. It runs on every push to any branch except `main`, and on every pull request into `main`.
+
+| Job | What it does |
+|-----|--------------|
+| **Lint** | Sets up Python 3.12, installs the dependencies, then runs `ruff check .` and `ruff format --check .` |
+| **Test** | Runs the pytest suite with coverage on Python 3.12 and 3.13 (a version matrix) |
+| **Build Docker images** | Builds the backend and frontend images. It starts only after Lint and Test pass |
+
+If linting, any test, or a Docker build fails, the pipeline fails, and the pull request cannot be merged. To keep runs fast, pip downloads are cached based on `backend/requirements.txt`, and Docker layers are cached with the GitHub Actions cache.
+
+To check your work locally before pushing, run the same commands from the `backend` folder:
+
+```bash
+ruff check .
+ruff format --check .
+pytest
+```
+
 ## Security Practices
 
 We follow a **"shift left"** approach: security is built in from the first commit, not added at the end.
@@ -326,7 +347,7 @@ The `main` branch is protected so that every change is reviewed before it reache
 | Require a pull request before merging | Nobody can push directly to `main`. Every change goes through a PR, so there is a clear record of what changed and why. |
 | Require 1 approval | Another team member must review the code. This catches bugs early and makes sure both of us understand all of the code. |
 | Dismiss stale approvals when new commits are pushed | If code changes after approval, it must be reviewed again, so unreviewed code cannot slip in. |
-| Require status checks to pass before merging | Automated checks must pass before merging. Our CI pipeline (Formative 2) will run the tests here, so broken code cannot reach `main`. |
+| Require status checks to pass before merging | Automated checks must pass before merging. Our CI pipeline runs linting, tests, and the Docker builds here, so broken code cannot reach `main`. |
 | Require branches to be up to date before merging | A PR must include the latest `main`, so it is checked against the current code and hidden conflicts are avoided. |
 | Require conversation resolution before merging | Every review comment must be answered or fixed, so feedback is never ignored. |
 | Include administrators | The rules apply to everyone, including the repository owner, so there are no shortcuts. |
