@@ -3,7 +3,6 @@ from functools import lru_cache
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 POSTGRES_DRIVER_PREFIX = "postgresql+psycopg://"
 POSTGRES_PLAIN_PREFIXES = ("postgres://", "postgresql://")
 
@@ -11,7 +10,7 @@ POSTGRES_PLAIN_PREFIXES = ("postgres://", "postgresql://")
 def normalize_database_url(url: str) -> str:
     for prefix in POSTGRES_PLAIN_PREFIXES:
         if url.startswith(prefix):
-            return POSTGRES_DRIVER_PREFIX + url[len(prefix):]
+            return POSTGRES_DRIVER_PREFIX + url[len(prefix) :]
     return url
 
 

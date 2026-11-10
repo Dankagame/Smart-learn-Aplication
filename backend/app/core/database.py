@@ -12,8 +12,8 @@ connect_args = {"check_same_thread": False} if is_sqlite_url(settings.database_u
 engine = create_engine(
     settings.database_url,
     connect_args=connect_args,
-    pool_pre_ping=True,  
-    echo=settings.debug, 
+    pool_pre_ping=True,
+    echo=settings.debug,
 )
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

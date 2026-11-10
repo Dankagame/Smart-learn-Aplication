@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from typing import Any
 
@@ -31,7 +31,7 @@ def dummy_password_hash() -> str:
 
 def create_access_token(subject: str, extra_claims: dict[str, Any] | None = None) -> str:
     settings = get_settings()
-    issued_at = datetime.now(timezone.utc)
+    issued_at = datetime.now(UTC)
     payload = {
         **(extra_claims or {}),
         "sub": subject,

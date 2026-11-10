@@ -50,9 +50,9 @@ def owned_quiz(
     try:
         return service.get_owned_quiz(db, quiz_id, teacher)
     except service.QuizNotFoundError:
-        raise QUIZ_NOT_FOUND
+        raise QUIZ_NOT_FOUND from None
     except service.NotQuizOwnerError:
-        raise NOT_QUIZ_OWNER
+        raise NOT_QUIZ_OWNER from None
 
 
 @router.post(
@@ -70,16 +70,19 @@ def create_quiz(
     try:
         quiz = service.create_quiz(db, course_id, teacher, data)
     except CourseNotFoundError:
-        raise COURSE_NOT_FOUND
+        raise COURSE_NOT_FOUND from None
     except NotCourseOwnerError:
-        raise NOT_COURSE_OWNER
+        raise NOT_COURSE_OWNER from None
     return QuizWithAnswers.from_quiz(quiz)
 
 
 @router.get(
     "/courses/{course_id}/quizzes",
     response_model=list[QuizSummary],
-    responses={**UNAUTHORIZED_RESPONSE, status.HTTP_404_NOT_FOUND: {"description": "Course not found"}},
+    responses={
+        **UNAUTHORIZED_RESPONSE,
+        status.HTTP_404_NOT_FOUND: {"description": "Course not found"},
+    },
 )
 def list_course_quizzes(
     course_id: int,
@@ -89,14 +92,17 @@ def list_course_quizzes(
     try:
         quizzes = service.list_course_quizzes(db, course_id)
     except CourseNotFoundError:
-        raise COURSE_NOT_FOUND
+        raise COURSE_NOT_FOUND from None
     return [QuizSummary.from_quiz(quiz) for quiz in quizzes]
 
 
 @router.get(
     "/quizzes/{quiz_id}",
     response_model=QuizPublic,
-    responses={**UNAUTHORIZED_RESPONSE, status.HTTP_404_NOT_FOUND: {"description": "Quiz not found"}},
+    responses={
+        **UNAUTHORIZED_RESPONSE,
+        status.HTTP_404_NOT_FOUND: {"description": "Quiz not found"},
+    },
 )
 def get_quiz(
     quiz_id: int,
@@ -106,15 +112,19 @@ def get_quiz(
     try:
         return QuizPublic.from_quiz(service.get_quiz(db, quiz_id))
     except service.QuizNotFoundError:
-        raise QUIZ_NOT_FOUND
+        raise QUIZ_NOT_FOUND from None
 
 
-@router.get("/quizzes/{quiz_id}/answer-key", response_model=QuizWithAnswers, responses=OWNER_RESPONSES)
+@router.get(
+    "/quizzes/{quiz_id}/answer-key", response_model=QuizWithAnswers, responses=OWNER_RESPONSES
+)
 def get_quiz_answer_key(quiz: Quiz = Depends(owned_quiz)) -> QuizWithAnswers:
     return QuizWithAnswers.from_quiz(quiz)
 
 
-@router.delete("/quizzes/{quiz_id}", status_code=status.HTTP_204_NO_CONTENT, responses=OWNER_RESPONSES)
+@router.delete(
+    "/quizzes/{quiz_id}", status_code=status.HTTP_204_NO_CONTENT, responses=OWNER_RESPONSES
+)
 def delete_quiz(quiz: Quiz = Depends(owned_quiz), db: Session = Depends(get_db)) -> None:
     service.delete_quiz(db, quiz)
 
@@ -139,13 +149,17 @@ def submit_quiz(
     try:
         attempt = attempts.submit_attempt(db, quiz_id, student, submission)
     except service.QuizNotFoundError:
-        raise QUIZ_NOT_FOUND
+        raise QUIZ_NOT_FOUND from None
     except attempts.InvalidAnswerError as error:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=error.message)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=error.message
+        ) from None
     return AttemptResult.from_attempt(attempt)
 
 
-@results_router.get("/results", response_model=list[AttemptSummary], responses=UNAUTHORIZED_RESPONSE)
+@results_router.get(
+    "/results", response_model=list[AttemptSummary], responses=UNAUTHORIZED_RESPONSE
+)
 def list_my_results(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -159,7 +173,10 @@ def list_my_results(
 @results_router.get(
     "/results/{attempt_id}",
     response_model=AttemptResult,
-    responses={**UNAUTHORIZED_RESPONSE, status.HTTP_404_NOT_FOUND: {"description": "Result not found"}},
+    responses={
+        **UNAUTHORIZED_RESPONSE,
+        status.HTTP_404_NOT_FOUND: {"description": "Result not found"},
+    },
 )
 def get_my_result(
     attempt_id: int,
@@ -167,6 +184,8 @@ def get_my_result(
     db: Session = Depends(get_db),
 ) -> AttemptResult:
     try:
-        return AttemptResult.from_attempt(attempts.get_student_attempt(db, attempt_id, current_user))
+        return AttemptResult.from_attempt(
+            attempts.get_student_attempt(db, attempt_id, current_user)
+        )
     except attempts.AttemptNotFoundError:
-        raise RESULT_NOT_FOUND
+        raise RESULT_NOT_FOUND from None

@@ -18,6 +18,8 @@ SmartLearn is a lightweight **web application** that runs in any web browser, so
 - [Running with Docker Compose](#running-with-docker-compose)
 - [How to Run Locally](#how-to-run-locally)
 - [Running the Tests](#running-the-tests)
+- [Linting and Code Style](#linting-and-code-style)
+- [Continuous Integration](#continuous-integration)
 - [Security Practices](#security-practices)
 - [Branch Protection Rules](#branch-protection-rules)
 - [Development Workflow](#development-workflow)
@@ -69,6 +71,7 @@ SmartLearn gives students **one organized place** to find curriculum-aligned lea
 | | SQLAlchemy 2.0 | ORM that lets the same code work with both SQLite and PostgreSQL. |
 | | JWT + bcrypt | Stateless token-based authentication and secure password hashing. |
 | | pytest | Simple, powerful framework for unit and API tests. |
+| | Ruff | Fast linter and code formatter that keeps the Python code clean and consistent. |
 | **Tools & DevOps** | Git, GitHub, GitHub Projects | Version control, code review through pull requests, and agile planning. |
 | | *Planned:* Docker, GitHub Actions, Terraform, cloud deployment | Containerization, CI/CD automation, infrastructure as code, and hosting, added later in the course. |
 
@@ -279,7 +282,72 @@ pytest --cov=app --cov-report=term
 | `test_scoring.py` | The scoring function (unit tests) |
 | `test_health.py` | The `/health` endpoint |
 
-For now, we run the tests before every merge into `main`. In Formative 2, our CI pipeline will run them automatically on every pull request as a required status check.
+These tests also run automatically in our CI pipeline. See [Continuous Integration](#continuous-integration).
+
+## Linting and Code Style
+
+The backend uses **[Ruff](https://docs.astral.sh/ruff/)** to check code style and catch common bugs, and to format the code consistently. Its settings live in `backend/pyproject.toml`:
+
+- Line length of 100 characters, targeting Python 3.12.
+- Rule sets: pycodestyle (`E`, `W`), Pyflakes (`F`), import sorting (`I`), flake8-bugbear (`B`), pyupgrade (`UP`), and flake8-simplify (`SIM`).
+
+Ruff is included in `requirements.txt`. With the virtual environment activated (see [How to Run Locally](#how-to-run-locally)):
+
+```bash
+cd backend
+ruff check .            # report lint errors
+ruff format --check .   # report files that need formatting
+```
+
+To fix problems automatically:
+
+```bash
+ruff check . --fix      # fix the lint errors Ruff can fix safely
+ruff format .           # reformat the code
+```
+
+Please make sure both `ruff check .` and `ruff format --check .` pass before opening a pull request.
+
+## Continuous Integration
+
+Our GitHub Actions pipeline lives in `.github/workflows/ci.yml`. It runs on every push to any branch except `main`, and on every pull request into `main`.
+
+| Job | What it does |
+|-----|--------------|
+| **Lint** | Sets up Python 3.12, installs the dependencies, then runs `ruff check .` and `ruff format --check .` |
+| **Test** | Runs the pytest suite with coverage on Python 3.12 and 3.13 (a version matrix) |
+| **Build and publish Docker images** | Builds the backend and frontend images and publishes them to GitHub Container Registry. It starts only after Lint and Test pass |
+
+If linting, any test, or a Docker build fails, the pipeline fails, and the pull request cannot be merged. To keep runs fast, pip downloads are cached based on `backend/requirements.txt`, and Docker layers are cached with the GitHub Actions cache.
+
+### Published Docker images
+
+On every push to a branch other than `main`, after Lint and Test pass, the pipeline publishes both images to **GitHub Container Registry (GHCR)**:
+
+| Image | Location |
+|-------|----------|
+| Backend | `ghcr.io/dankagame/smartlearn-backend` |
+| Frontend | `ghcr.io/dankagame/smartlearn-frontend` |
+
+Each image gets two tags from the commit it was built from: the full commit SHA (for example `ghcr.io/dankagame/smartlearn-backend:3f2c1a9...`) and a short one (`sha-3f2c1a9`). Pull requests only build the images, to check that they still build, and don't publish them.
+
+The pipeline logs in to GHCR with the built-in `GITHUB_TOKEN` secret, which GitHub creates for each run and which only works while that run lasts. No password is stored in the workflow file. The `docker` job gets `packages: write` permission so it can push.
+
+To pull an image, for example the one built from commit `3f2c1a9`:
+
+```bash
+docker pull ghcr.io/dankagame/smartlearn-backend:sha-3f2c1a9
+```
+
+New GHCR packages are private by default. To let anyone pull them without logging in, change the package visibility to public in each package's settings on GitHub.
+
+To check your work locally before pushing, run the same commands from the `backend` folder:
+
+```bash
+ruff check .
+ruff format --check .
+pytest
+```
 
 ## Security Practices
 
@@ -300,7 +368,7 @@ The `main` branch is protected so that every change is reviewed before it reache
 | Require a pull request before merging | Nobody can push directly to `main`. Every change goes through a PR, so there is a clear record of what changed and why. |
 | Require 1 approval | Another team member must review the code. This catches bugs early and makes sure both of us understand all of the code. |
 | Dismiss stale approvals when new commits are pushed | If code changes after approval, it must be reviewed again, so unreviewed code cannot slip in. |
-| Require status checks to pass before merging | Automated checks must pass before merging. Our CI pipeline (Formative 2) will run the tests here, so broken code cannot reach `main`. |
+| Require status checks to pass before merging | Automated checks must pass before merging. Our CI pipeline runs linting, tests, and the Docker builds here, so broken code cannot reach `main`. |
 | Require branches to be up to date before merging | A PR must include the latest `main`, so it is checked against the current code and hidden conflicts are avoided. |
 | Require conversation resolution before merging | Every review comment must be answered or fixed, so feedback is never ignored. |
 | Include administrators | The rules apply to everyone, including the repository owner, so there are no shortcuts. |

@@ -25,7 +25,7 @@ def register(data: UserRegister, db: Session = Depends(get_db)) -> UserRead:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="An account with this email already exists",
-        )
+        ) from None
     return UserRead.model_validate(user)
 
 

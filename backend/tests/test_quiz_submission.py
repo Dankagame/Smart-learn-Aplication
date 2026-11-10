@@ -8,7 +8,11 @@ QUIZ_PAYLOAD = {
         {
             "text": "What is the capital of Rwanda?",
             "explanation": "Kigali has been the capital since independence in 1962.",
-            "options": [{"text": "Kigali", "is_correct": True}, {"text": "Huye"}, {"text": "Musanze"}],
+            "options": [
+                {"text": "Kigali", "is_correct": True},
+                {"text": "Huye"},
+                {"text": "Musanze"},
+            ],
         },
         {
             "text": "Which lake lies on Rwanda's western border?",
@@ -17,7 +21,12 @@ QUIZ_PAYLOAD = {
         },
         {
             "text": "How many provinces does Rwanda have, including Kigali?",
-            "options": [{"text": "4"}, {"text": "5", "is_correct": True}, {"text": "6"}, {"text": "30"}],
+            "options": [
+                {"text": "4"},
+                {"text": "5", "is_correct": True},
+                {"text": "6"},
+                {"text": "30"},
+            ],
         },
     ],
 }
@@ -71,7 +80,7 @@ def wrong_option(question: dict) -> int:
 
 def answers_for(quiz: dict, pattern: list[bool | None]) -> list[dict]:
     answers = []
-    for question, answer_correctly in zip(quiz["questions"], pattern):
+    for question, answer_correctly in zip(quiz["questions"], pattern, strict=False):
         if answer_correctly is None:
             continue
         option_id = correct_option(question) if answer_correctly else wrong_option(question)
@@ -81,7 +90,9 @@ def answers_for(quiz: dict, pattern: list[bool | None]) -> list[dict]:
 
 def submit(client, user: dict, quiz: dict, pattern: list[bool | None]):
     return client.post(
-        submit_url(quiz["id"]), json={"answers": answers_for(quiz, pattern)}, headers=user["headers"]
+        submit_url(quiz["id"]),
+        json={"answers": answers_for(quiz, pattern)},
+        headers=user["headers"],
     )
 
 
@@ -158,19 +169,25 @@ class TestSubmissionRules:
         assert response.status_code == 403
 
     def test_anonymous_user_cannot_submit_quiz(self, client, answer_key):
-        response = client.post(submit_url(answer_key["id"]), json={"answers": answers_for(answer_key, [True])})
+        response = client.post(
+            submit_url(answer_key["id"]), json={"answers": answers_for(answer_key, [True])}
+        )
 
         assert response.status_code == 401
 
     def test_unknown_quiz_returns_404(self, client, student):
         response = client.post(
-            submit_url(9999), json={"answers": [{"question_id": 1, "option_id": 1}]}, headers=student["headers"]
+            submit_url(9999),
+            json={"answers": [{"question_id": 1, "option_id": 1}]},
+            headers=student["headers"],
         )
 
         assert response.status_code == 404
 
     def test_empty_submission_is_rejected(self, client, student, answer_key):
-        response = client.post(submit_url(answer_key["id"]), json={"answers": []}, headers=student["headers"])
+        response = client.post(
+            submit_url(answer_key["id"]), json={"answers": []}, headers=student["headers"]
+        )
 
         assert response.status_code == 422
 
@@ -181,14 +198,18 @@ class TestSubmissionRules:
             {"question_id": question["id"], "option_id": wrong_option(question)},
         ]
 
-        response = client.post(submit_url(answer_key["id"]), json={"answers": answers}, headers=student["headers"])
+        response = client.post(
+            submit_url(answer_key["id"]), json={"answers": answers}, headers=student["headers"]
+        )
 
         assert response.status_code == 422
 
     def test_question_from_another_quiz_is_rejected(self, client, student, answer_key):
         answers = [{"question_id": 9999, "option_id": correct_option(answer_key["questions"][0])}]
 
-        response = client.post(submit_url(answer_key["id"]), json={"answers": answers}, headers=student["headers"])
+        response = client.post(
+            submit_url(answer_key["id"]), json={"answers": answers}, headers=student["headers"]
+        )
 
         assert response.status_code == 422
         assert response.json()["detail"] == "Question 9999 does not belong to this quiz"
@@ -197,13 +218,17 @@ class TestSubmissionRules:
         first, second = answer_key["questions"][0], answer_key["questions"][1]
         answers = [{"question_id": first["id"], "option_id": correct_option(second)}]
 
-        response = client.post(submit_url(answer_key["id"]), json={"answers": answers}, headers=student["headers"])
+        response = client.post(
+            submit_url(answer_key["id"]), json={"answers": answers}, headers=student["headers"]
+        )
 
         assert response.status_code == 422
 
     def test_rejected_submission_is_not_saved(self, client, student, answer_key):
         answers = [{"question_id": 9999, "option_id": 1}]
-        client.post(submit_url(answer_key["id"]), json={"answers": answers}, headers=student["headers"])
+        client.post(
+            submit_url(answer_key["id"]), json={"answers": answers}, headers=student["headers"]
+        )
 
         assert client.get(RESULTS_URL, headers=student["headers"]).json() == []
 
@@ -250,10 +275,14 @@ class TestMyResults:
         assert response.status_code == 200
         assert response.json() == attempt
 
-    def test_student_cannot_open_another_students_result(self, client, student, other_student, answer_key):
+    def test_student_cannot_open_another_students_result(
+        self, client, student, other_student, answer_key
+    ):
         attempt = submit(client, student, answer_key, [True, True, True]).json()
 
-        response = client.get(f"{RESULTS_URL}/{attempt['attempt_id']}", headers=other_student["headers"])
+        response = client.get(
+            f"{RESULTS_URL}/{attempt['attempt_id']}", headers=other_student["headers"]
+        )
 
         assert response.status_code == 404
 

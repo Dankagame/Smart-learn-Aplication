@@ -36,9 +36,9 @@ def owned_course(
     try:
         return service.get_owned_course(db, course_id, teacher)
     except service.CourseNotFoundError:
-        raise COURSE_NOT_FOUND
+        raise COURSE_NOT_FOUND from None
     except service.NotCourseOwnerError:
-        raise NOT_COURSE_OWNER
+        raise NOT_COURSE_OWNER from None
 
 
 @router.get("", response_model=list[CourseRead], responses=AUTH_RESPONSES)
@@ -70,7 +70,7 @@ def get_course(
     try:
         return CourseRead.from_course(service.get_course(db, course_id))
     except service.CourseNotFoundError:
-        raise COURSE_NOT_FOUND
+        raise COURSE_NOT_FOUND from None
 
 
 @router.post(

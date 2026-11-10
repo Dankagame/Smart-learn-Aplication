@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
@@ -67,7 +67,7 @@ class TestAccessTokens:
 
     def test_expired_token_is_rejected(self):
         settings = get_settings()
-        past = datetime.now(timezone.utc) - timedelta(hours=1)
+        past = datetime.now(UTC) - timedelta(hours=1)
         token = jwt.encode(
             {"sub": "42", "iat": past, "exp": past + timedelta(minutes=1)},
             settings.secret_key,
@@ -78,7 +78,7 @@ class TestAccessTokens:
             decode_access_token(token)
 
     def test_token_signed_with_wrong_key_is_rejected(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         token = jwt.encode(
             {"sub": "42", "iat": now, "exp": now + timedelta(minutes=5)},
             "wrong-secret",
@@ -89,8 +89,10 @@ class TestAccessTokens:
             decode_access_token(token)
 
     def test_unsigned_token_is_rejected(self):
-        now = datetime.now(timezone.utc)
-        token = jwt.encode({"sub": "42", "iat": now, "exp": now + timedelta(minutes=5)}, None, algorithm="none")
+        now = datetime.now(UTC)
+        token = jwt.encode(
+            {"sub": "42", "iat": now, "exp": now + timedelta(minutes=5)}, None, algorithm="none"
+        )
 
         with pytest.raises(InvalidTokenError):
             decode_access_token(token)
@@ -98,7 +100,7 @@ class TestAccessTokens:
     @pytest.mark.parametrize("missing_claim", ["sub", "iat", "exp"])
     def test_token_missing_required_claim_is_rejected(self, missing_claim):
         settings = get_settings()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         claims = {"sub": "42", "iat": now, "exp": now + timedelta(minutes=5)}
         del claims[missing_claim]
         token = jwt.encode(claims, settings.secret_key, algorithm=settings.jwt_algorithm)

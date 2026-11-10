@@ -1,10 +1,15 @@
 import enum
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Enum, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.courses.models import Course
+    from app.quizzes.models import QuizAttempt
 
 
 class UserRole(str, enum.Enum):
@@ -23,9 +28,7 @@ class User(Base):
         Enum(UserRole, name="user_role", values_callable=lambda e: [m.value for m in e]),
         default=UserRole.STUDENT,
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     courses: Mapped[list["Course"]] = relationship(back_populates="teacher")
     quiz_attempts: Mapped[list["QuizAttempt"]] = relationship(back_populates="student")

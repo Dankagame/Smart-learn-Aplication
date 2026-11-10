@@ -151,7 +151,6 @@ def ordered(choices: list[Choice]) -> list[Choice]:
     return sorted(choices, key=lambda choice: choice.id)
 
 
-
 class AnswerSubmit(BaseModel):
     question_id: int = Field(gt=0)
     option_id: int = Field(gt=0)
@@ -228,6 +227,6 @@ class AttemptResult(AttemptSummary):
                     is_correct=result.is_correct,
                     explanation=question.explanation,
                 )
-                for question, result in zip(questions, graded)
+                for question, result in zip(questions, graded, strict=False)
             ],
         )

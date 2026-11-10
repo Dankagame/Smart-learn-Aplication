@@ -31,7 +31,7 @@ def get_current_user(
         payload = decode_access_token(credentials.credentials)
         user_id = int(payload["sub"])
     except (InvalidTokenError, ValueError):
-        raise unauthorized("Invalid or expired token")
+        raise unauthorized("Invalid or expired token") from None
 
     user = get_user_by_id(db, user_id)
     if user is None:
