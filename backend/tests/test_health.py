@@ -28,4 +28,4 @@ def test_health_reports_unavailable_database(monkeypatch):
 def test_health_rejects_post_requests():
     response = TestClient(app).post("/health")
 
-    assert response.status_code == 404
+    assert response.status_code == 405
