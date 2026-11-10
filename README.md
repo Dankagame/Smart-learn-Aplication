@@ -18,6 +18,7 @@ SmartLearn is a lightweight **web application** that runs in any web browser, so
 - [Running with Docker Compose](#running-with-docker-compose)
 - [How to Run Locally](#how-to-run-locally)
 - [Running the Tests](#running-the-tests)
+- [Linting and Code Style](#linting-and-code-style)
 - [Security Practices](#security-practices)
 - [Branch Protection Rules](#branch-protection-rules)
 - [Development Workflow](#development-workflow)
@@ -69,6 +70,7 @@ SmartLearn gives students **one organized place** to find curriculum-aligned lea
 | | SQLAlchemy 2.0 | ORM that lets the same code work with both SQLite and PostgreSQL. |
 | | JWT + bcrypt | Stateless token-based authentication and secure password hashing. |
 | | pytest | Simple, powerful framework for unit and API tests. |
+| | Ruff | Fast linter and code formatter that keeps the Python code clean and consistent. |
 | **Tools & DevOps** | Git, GitHub, GitHub Projects | Version control, code review through pull requests, and agile planning. |
 | | *Planned:* Docker, GitHub Actions, Terraform, cloud deployment | Containerization, CI/CD automation, infrastructure as code, and hosting, added later in the course. |
 
@@ -280,6 +282,30 @@ pytest --cov=app --cov-report=term
 | `test_health.py` | The `/health` endpoint |
 
 For now, we run the tests before every merge into `main`. In Formative 2, our CI pipeline will run them automatically on every pull request as a required status check.
+
+## Linting and Code Style
+
+The backend uses **[Ruff](https://docs.astral.sh/ruff/)** to check code style and catch common bugs, and to format the code consistently. Its settings live in `backend/pyproject.toml`:
+
+- Line length of 100 characters, targeting Python 3.12.
+- Rule sets: pycodestyle (`E`, `W`), Pyflakes (`F`), import sorting (`I`), flake8-bugbear (`B`), pyupgrade (`UP`), and flake8-simplify (`SIM`).
+
+Ruff is included in `requirements.txt`. With the virtual environment activated (see [How to Run Locally](#how-to-run-locally)):
+
+```bash
+cd backend
+ruff check .            # report lint errors
+ruff format --check .   # report files that need formatting
+```
+
+To fix problems automatically:
+
+```bash
+ruff check . --fix      # fix the lint errors Ruff can fix safely
+ruff format .           # reformat the code
+```
+
+Please make sure both `ruff check .` and `ruff format --check .` pass before opening a pull request.
 
 ## Security Practices
 

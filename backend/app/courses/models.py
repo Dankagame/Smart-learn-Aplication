@@ -1,9 +1,14 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.auth.models import User
+    from app.quizzes.models import Quiz
 
 
 class Course(Base):
@@ -15,9 +20,7 @@ class Course(Base):
     level: Mapped[str] = mapped_column(String(20), index=True)
     description: Mapped[str | None] = mapped_column(Text)
     teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     teacher: Mapped["User"] = relationship(back_populates="courses")
     materials: Mapped[list["Material"]] = relationship(
@@ -39,9 +42,7 @@ class Material(Base):
     title: Mapped[str] = mapped_column(String(150))
     content: Mapped[str | None] = mapped_column(Text)
     link_url: Mapped[str | None] = mapped_column(String(500))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     course: Mapped["Course"] = relationship(back_populates="materials")
 

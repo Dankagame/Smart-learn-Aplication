@@ -43,7 +43,9 @@ def validate_answers(quiz: Quiz, submission: QuizSubmission) -> dict[int, int]:
     return selected
 
 
-def submit_attempt(db: Session, quiz_id: int, student: User, submission: QuizSubmission) -> QuizAttempt:
+def submit_attempt(
+    db: Session, quiz_id: int, student: User, submission: QuizSubmission
+) -> QuizAttempt:
     quiz = get_quiz(db, quiz_id)
     result = grade(quiz.questions, validate_answers(quiz, submission))
 
@@ -67,12 +69,16 @@ def submit_attempt(db: Session, quiz_id: int, student: User, submission: QuizSub
 
 
 def get_student_attempt(db: Session, attempt_id: int, student: User) -> QuizAttempt:
-    attempt = db.scalars(
-        attempt_with_details().where(
-            QuizAttempt.id == attempt_id,
-            QuizAttempt.student_id == student.id,
+    attempt = (
+        db.scalars(
+            attempt_with_details().where(
+                QuizAttempt.id == attempt_id,
+                QuizAttempt.student_id == student.id,
+            )
         )
-    ).unique().one_or_none()
+        .unique()
+        .one_or_none()
+    )
     if attempt is None:
         raise AttemptNotFoundError
     return attempt

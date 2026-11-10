@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
@@ -50,9 +50,11 @@ def bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def make_token(subject: str, *, key: str | None = None, expires_in: timedelta = timedelta(minutes=5)) -> str:
+def make_token(
+    subject: str, *, key: str | None = None, expires_in: timedelta = timedelta(minutes=5)
+) -> str:
     settings = get_settings()
-    issued_at = datetime.now(timezone.utc)
+    issued_at = datetime.now(UTC)
     return jwt.encode(
         {"sub": subject, "iat": issued_at, "exp": issued_at + expires_in},
         key or settings.secret_key,
@@ -131,7 +133,12 @@ class TestLogin:
 
     @pytest.mark.parametrize(
         "payload",
-        [{}, {"email": "student@example.com"}, {"password": PASSWORD}, {"email": "not-an-email", "password": PASSWORD}],
+        [
+            {},
+            {"email": "student@example.com"},
+            {"password": PASSWORD},
+            {"email": "not-an-email", "password": PASSWORD},
+        ],
     )
     def test_invalid_body_returns_422(self, client, payload):
         response = client.post(LOGIN_URL, json=payload)
@@ -152,7 +159,9 @@ class TestProtectedEndpoint:
         assert response.status_code == 401
         assert response.json()["detail"] == "Not authenticated"
 
-    @pytest.mark.parametrize("header", ["Bearer", "Bearer not.a.jwt", "Basic dXNlcjpwYXNz", "Token abc"])
+    @pytest.mark.parametrize(
+        "header", ["Bearer", "Bearer not.a.jwt", "Basic dXNlcjpwYXNz", "Token abc"]
+    )
     def test_malformed_authorization_header_returns_401(self, client, header):
         response = client.get(ME_URL, headers={"Authorization": header})
 
@@ -217,8 +226,8 @@ class TestRoleBasedAccess:
             {
                 "sub": str(student["id"]),
                 "role": "teacher",
-                "iat": datetime.now(timezone.utc),
-                "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+                "iat": datetime.now(UTC),
+                "exp": datetime.now(UTC) + timedelta(minutes=5),
             },
             get_settings().secret_key,
             algorithm=get_settings().jwt_algorithm,

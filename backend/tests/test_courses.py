@@ -103,7 +103,9 @@ class TestCreateCourse:
         ],
     )
     def test_invalid_fields_are_rejected(self, client, teacher, overrides):
-        response = client.post(COURSES_URL, json=course_payload(**overrides), headers=teacher["headers"])
+        response = client.post(
+            COURSES_URL, json=course_payload(**overrides), headers=teacher["headers"]
+        )
 
         assert response.status_code == 422
 
@@ -147,7 +149,9 @@ class TestFilterCourses:
             (other_teacher, course_payload(title="Statistics", subject="Mathematics", level="S6")),
         ]
         for owner, payload in seeds:
-            assert client.post(COURSES_URL, json=payload, headers=owner["headers"]).status_code == 201
+            assert (
+                client.post(COURSES_URL, json=payload, headers=owner["headers"]).status_code == 201
+            )
 
     def titles(self, client, headers, **params) -> set[str]:
         response = client.get(COURSES_URL, params=params, headers=headers)
@@ -247,13 +251,21 @@ class TestUpdateCourse:
         assert response.status_code == 401
 
     def test_editing_unknown_course_returns_404(self, client, teacher):
-        response = client.patch(course_url(9999), json={"title": "Anything"}, headers=teacher["headers"])
+        response = client.patch(
+            course_url(9999), json={"title": "Anything"}, headers=teacher["headers"]
+        )
 
         assert response.status_code == 404
 
     @pytest.mark.parametrize(
         "payload",
-        [{}, {"title": None}, {"level": "S0"}, {"teacher_id": 99}, {"title": "Ok title", "unknown": 1}],
+        [
+            {},
+            {"title": None},
+            {"level": "S0"},
+            {"teacher_id": 99},
+            {"title": "Ok title", "unknown": 1},
+        ],
     )
     def test_invalid_update_is_rejected(self, client, teacher, course, payload):
         response = client.patch(course_url(course["id"]), json=payload, headers=teacher["headers"])

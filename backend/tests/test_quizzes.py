@@ -82,14 +82,18 @@ def course(client, teacher) -> dict:
 
 @pytest.fixture
 def quiz(client, teacher, course) -> dict:
-    response = client.post(quizzes_url(course["id"]), json=quiz_payload(), headers=teacher["headers"])
+    response = client.post(
+        quizzes_url(course["id"]), json=quiz_payload(), headers=teacher["headers"]
+    )
     assert response.status_code == 201, response.text
     return response.json()
 
 
 class TestCreateQuiz:
     def test_teacher_creates_quiz_for_own_course(self, client, teacher, course):
-        response = client.post(quizzes_url(course["id"]), json=quiz_payload(), headers=teacher["headers"])
+        response = client.post(
+            quizzes_url(course["id"]), json=quiz_payload(), headers=teacher["headers"]
+        )
 
         assert response.status_code == 201
         body = response.json()
@@ -118,11 +122,15 @@ class TestCreateQuiz:
         assert response.status_code == 201
 
     def test_student_cannot_create_quiz(self, client, student, course):
-        response = client.post(quizzes_url(course["id"]), json=quiz_payload(), headers=student["headers"])
+        response = client.post(
+            quizzes_url(course["id"]), json=quiz_payload(), headers=student["headers"]
+        )
 
         assert response.status_code == 403
 
-    def test_teacher_cannot_add_quiz_to_another_teachers_course(self, client, other_teacher, course):
+    def test_teacher_cannot_add_quiz_to_another_teachers_course(
+        self, client, other_teacher, course
+    ):
         response = client.post(
             quizzes_url(course["id"]), json=quiz_payload(), headers=other_teacher["headers"]
         )
