@@ -85,6 +85,13 @@ crash.log
 
 docker-compose.override.yml
 
+# Ansible
+*.retry
+ansible/.retry
+ansible/inventory/hosts.local.ini
+ansible/*.vault.key
+ansible/.ansible/
+
 tmp/
 temp/
 *.tmp

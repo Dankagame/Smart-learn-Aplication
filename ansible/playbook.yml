@@ -1,0 +1,44 @@
+---
+# ==============================================================================
+# SmartLearn Master Deployment Playbook
+# Formative 3 - Configuration & App Security (Person B)
+# ==============================================================================
+- name: Configure and Deploy SmartLearn Application
+  hosts: webservers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Verify connectivity and gather facts
+      ansible.builtin.ping:
+
+    - name: Ensure target OS is supported (Debian/Ubuntu family)
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == "Debian"
+        fail_msg: "This playbook currently supports Debian/Ubuntu family Linux distributions."
+
+  roles:
+    - role: common
+      tags:
+        - common
+        - security
+        - ssh
+        - firewall
+
+    - role: docker
+      tags:
+        - docker
+
+    - role: app
+      tags:
+        - app
+        - deploy
+
+  post_tasks:
+    - name: Summary of deployment status
+      ansible.builtin.debug:
+        msg: >
+          SmartLearn has been successfully configured and deployed on {{ inventory_hostname }} ({{ ansible_host }}).
+          Web Interface: http://{{ ansible_host }}:{{ frontend_port }}
+          API Healthcheck: http://{{ ansible_host }}:{{ backend_port }}/health

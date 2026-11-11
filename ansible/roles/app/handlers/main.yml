@@ -1,0 +1,6 @@
+---
+# Handlers for app role
+- name: Restart smartlearn containers
+  ansible.builtin.command:
+    cmd: docker compose down && docker compose up -d
+    chdir: "{{ app_dir }}"

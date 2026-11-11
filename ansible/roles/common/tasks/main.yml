@@ -1,0 +1,10 @@
+---
+# Entry point for common role
+- name: Apply baseline system configuration and packages
+  ansible.builtin.include_tasks: system.yml
+
+- name: Apply SSH server hardening
+  ansible.builtin.include_tasks: ssh.yml
+
+- name: Apply UFW firewall configuration
+  ansible.builtin.include_tasks: firewall.yml

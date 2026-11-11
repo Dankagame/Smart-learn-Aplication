@@ -1,0 +1,69 @@
+---
+# ==============================================================================
+# Application Deployment (Person B Requirement)
+# ==============================================================================
+
+- name: Create application directory
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Template production environment file (.env)
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ app_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600" # Restrict access to secrets
+  notify: Restart smartlearn containers
+
+- name: Template production docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ app_dir }}/docker-compose.yml"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  notify: Restart smartlearn containers
+
+- name: Pull latest container images
+  ansible.builtin.command:
+    cmd: docker compose pull
+    chdir: "{{ app_dir }}"
+  register: compose_pull_result
+  changed_when: "'Downloaded' in compose_pull_result.stdout or 'Pulling' in compose_pull_result.stderr"
+  failed_when: false # Allow offline/local builds during development testing
+
+- name: Start or reconcile application containers
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ app_dir }}"
+  register: compose_up_result
+  changed_when: "'Started' in compose_up_result.stdout or 'Recreated' in compose_up_result.stdout or 'Created' in compose_up_result.stdout"
+
+- name: Wait for backend API to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ backend_port }}/health"
+    method: GET
+    status_code: 200
+  register: backend_health
+  until: backend_health.status == 200
+  retries: "{{ healthcheck_retries }}"
+  delay: "{{ healthcheck_delay }}"
+
+- name: Wait for frontend to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ frontend_port }}/nginx-health"
+    method: GET
+    status_code: 200
+  register: frontend_health
+  until: frontend_health.status == 200
+  retries: "{{ healthcheck_retries }}"
+  delay: "{{ healthcheck_delay }}"
+
+- name: Confirm application deployment
+  ansible.builtin.debug:
+    msg: "SmartLearn successfully deployed and healthy! Backend: {{ backend_health.json.status }}, DB: {{ backend_health.json.database }}"
