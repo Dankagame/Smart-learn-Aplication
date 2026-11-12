@@ -1,6 +1,6 @@
 # SmartLearn Configuration & Deployment (Ansible)
 
-This directory contains the automated configuration management and application deployment playbooks for **SmartLearn**, prepared for **Formative 3 (Person B: Configuration + App Security)**.
+This directory contains the automated configuration management and application deployment playbooks for **SmartLearn**, prepared for **Formative 3 (Configuration + App Security)**.
 
 The setup is architected using **Ansible Roles** and designed for **idempotency** to meet the Mastery criteria.
 
@@ -10,10 +10,10 @@ The setup is architected using **Ansible Roles** and designed for **idempotency*
 
 - [Overview & Architecture](#overview--architecture)
 - [Role Breakdown](#role-breakdown)
-- [Day 1 Shared Agreement with Person A](#day-1-shared-agreement-with-person-a)
+- [Shared Infrastructure Agreement](#shared-infrastructure-agreement)
 - [Directory Structure](#directory-structure)
 - [Prerequisites](#prerequisites)
-- [How to Test in Parallel (Before Terraform)](#how-to-test-in-parallel-before-terraform)
+- [How to Test in Parallel (Local VM)](#how-to-test-in-parallel-local-vm)
 - [Running the Playbook](#running-the-playbook)
 - [Idempotency & Verification](#idempotency--verification)
 - [Hardening & Security Features](#hardening--security-features)
@@ -52,13 +52,13 @@ flowchart TD
 
 ---
 
-## Day 1 Shared Agreement with Person A
+## Shared Infrastructure Agreement
 
 | Parameter | Agreed Value | Notes |
 | :--- | :--- | :--- |
 | **Cloud Provider & Region** | AWS (`eu-west-1` Ireland or `us-east-1` N. Virginia) | Low latency, free-tier eligible `t3.micro` or `t2.micro`. |
 | **OS Image** | Ubuntu 22.04 LTS or 24.04 LTS (x86_64) | Consistent with Docker repository configurations. |
-| **SSH Key Pair** | `~/.ssh/smartlearn-key` / `smartlearn-key.pub` | Generated on Day 1 and shared between Person A and B. |
+| **SSH Key Pair** | `~/.ssh/smartlearn-key` / `smartlearn-key.pub` | Generated and shared across deployment components. |
 | **Frontend Port** | `80` (HTTP) | Exposed by UFW and mapped to container port 8080. |
 | **Backend Port** | `8000` (HTTP) | FastAPI backend; healthcheck at `/health`. |
 | **Database Port** | `5432` (Internal only) | Isolated inside Docker bridge network (`smartlearn-network`). Not exposed on host. |
@@ -118,9 +118,9 @@ ansible/
 
 ---
 
-## How to Test in Parallel (Before Terraform)
+## How to Test in Parallel (Local VM)
 
-Person B does not need to wait for Person A’s Terraform modules to be ready. You can test immediately using any Ubuntu VM:
+You can test immediately using any Ubuntu VM without waiting for cloud provisioning:
 
 1. **Using Multipass (Quickest Local VM):**
    ```bash
@@ -134,7 +134,7 @@ Person B does not need to wait for Person A’s Terraform modules to be ready. Y
    [webservers]
    smartlearn-server ansible_host=<VM_IP> ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/smartlearn-key
    ```
-3. Once Person A's Terraform script outputs the production EC2 public IP, simply swap `<VM_IP>` in `inventory/hosts.ini`!
+3. Once the production EC2 public IP is provisioned via Terraform, simply swap `<VM_IP>` in `inventory/hosts.ini`!
 
 ---
 

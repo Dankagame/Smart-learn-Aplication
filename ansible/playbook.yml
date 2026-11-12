@@ -1,7 +1,7 @@
 ---
 # ==============================================================================
 # SmartLearn Master Deployment Playbook
-# Formative 3 - Configuration & App Security (Person B)
+# Formative 3 - Configuration & App Security
 # ==============================================================================
 - name: Configure and Deploy SmartLearn Application
   hosts: webservers

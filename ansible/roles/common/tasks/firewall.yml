@@ -1,6 +1,6 @@
 ---
 # ==============================================================================
-# Firewall Configuration (UFW) (Person B Requirement)
+# Firewall Configuration (UFW)
 # ==============================================================================
 
 - name: Set UFW default incoming policy to DENY

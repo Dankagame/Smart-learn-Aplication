@@ -1,6 +1,6 @@
 ---
 # ==============================================================================
-# Docker Installation & Setup (Person B Requirement)
+# Docker Installation & Setup
 # ==============================================================================
 
 - name: Remove conflicting or legacy docker packages

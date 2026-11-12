@@ -1,6 +1,6 @@
 ---
 # ==============================================================================
-# Application Deployment (Person B Requirement)
+# Application Deployment
 # ==============================================================================
 
 - name: Create application directory

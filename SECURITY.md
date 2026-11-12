@@ -7,10 +7,10 @@ This document outlines the security architecture, automated security scanning re
 ## Table of Contents
 
 1. [Security Architecture & Defense-in-Depth](#1-security-architecture--defense-in-depth)
-2. [Dependency Security Findings (pip-audit) - Person B](#2-dependency-security-findings-pip-audit---person-b)
-3. [Container Security Findings (Trivy) - Person B](#3-container-security-findings-trivy---person-b)
-4. [Host & Configuration Hardening (Ansible) - Person B](#4-host--configuration-hardening-ansible---person-b)
-5. [Infrastructure as Code Findings (Terraform / tfsec / Checkov) - Person A](#5-infrastructure-as-code-findings-terraform--tfsec--checkov---person-a)
+2. [Dependency Security Findings (pip-audit)](#2-dependency-security-findings-pip-audit)
+3. [Container Security Findings (Trivy)](#3-container-security-findings-trivy)
+4. [Host & Configuration Hardening (Ansible)](#4-host--configuration-hardening-ansible)
+5. [Infrastructure as Code Findings (Terraform / tfsec / Checkov)](#5-infrastructure-as-code-findings-terraform--tfsec--checkov)
 6. [Incident Response & Security Contact](#6-incident-response--security-contact)
 
 ---
@@ -21,21 +21,21 @@ SmartLearn adheres to a multi-layered security strategy:
 
 ```mermaid
 flowchart TD
-    subgraph Layer1 ["Layer 1: Perimeter / Infrastructure (Person A)"]
+    subgraph Layer1 ["Layer 1: Perimeter / Infrastructure (Terraform)"]
         FW["Cloud Security Groups & VPC Isolation"]
     end
 
-    subgraph Layer2 ["Layer 2: Host Operating System (Person B)"]
+    subgraph Layer2 ["Layer 2: Host Operating System (Ansible)"]
         UFW["UFW Firewall (Default Deny Inbound)"]
         SSH["SSH Hardening (No Root, No Passwords, Rate Limiting)"]
     end
 
-    subgraph Layer3 ["Layer 3: Container Runtime (Person B)"]
+    subgraph Layer3 ["Layer 3: Container Runtime (Docker)"]
         ISO["Docker Isolated Bridge Network"]
         VOL["Persistent Named Volumes & Non-Root Containers"]
     end
 
-    subgraph Layer4 ["Layer 4: Application & Dependencies (Person B)"]
+    subgraph Layer4 ["Layer 4: Application & Dependencies"]
         AUDIT["pip-audit Automated Dependency Scanning"]
         JWT["Stateless JWT Authentication & Password Hashing (bcrypt)"]
     end
@@ -48,7 +48,7 @@ flowchart TD
 
 ---
 
-## 2. Dependency Security Findings (pip-audit) - Person B
+## 2. Dependency Security Findings (pip-audit)
 
 ### 2.1 Methodology
 Automated software composition analysis (SCA) is executed in the CI pipeline via `pip-audit`. It checks all direct and transitive dependencies defined in `backend/requirements.txt` against the PyPA Advisory Database and OSV (Open Source Vulnerabilities).
@@ -78,7 +78,7 @@ Automated software composition analysis (SCA) is executed in the CI pipeline via
 
 ---
 
-## 3. Container Security Findings (Trivy) - Person B
+## 3. Container Security Findings (Trivy)
 
 ### 3.1 Methodology
 Container image security is audited using **Aqua Security Trivy** directly within the GitHub Actions CI pipeline on every push and pull request. Both application images (`smartlearn-backend` and `smartlearn-frontend`) are inspected for:
@@ -103,7 +103,7 @@ Container image security is audited using **Aqua Security Trivy** directly withi
 
 ---
 
-## 4. Host & Configuration Hardening (Ansible) - Person B
+## 4. Host & Configuration Hardening (Ansible)
 
 Server configuration is governed by idempotent Ansible playbooks with built-in hardening:
 
@@ -124,16 +124,16 @@ Server configuration is governed by idempotent Ansible playbooks with built-in h
 
 ---
 
-## 5. Infrastructure as Code Findings (Terraform / tfsec / Checkov) - Person A
+## 5. Infrastructure as Code Findings (Terraform / tfsec / Checkov)
 
-> *This section is reserved for Person A to document their Terraform IaC security findings and tooling.*
+> *This section documents Terraform IaC security findings and tooling.*
 
 ### 5.1 IaC Scanning Tool
 - [ ] Tool used: `tfsec` or `Checkov`
 - [ ] Workflow integration: GitHub Actions IaC scan job on PRs to `main`
 
 ### 5.2 Identified IaC Findings & Remediations
-*(To be completed by Person A)*
+*(To be completed during Terraform review)*
 - Security Group rules (restricting ingress CIDR blocks)
 - VPC & Subnet public IP association
 - Storage encryption (EBS / S3)

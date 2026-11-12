@@ -1,6 +1,6 @@
 ---
 # ==============================================================================
-# SSH Hardening (Person B Requirement)
+# SSH Hardening
 # ==============================================================================
 
 - name: Ensure SSH configuration directory exists
