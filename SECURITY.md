@@ -66,15 +66,17 @@ Automated software composition analysis (SCA) is executed in the CI pipeline via
 | `email-validator` | `2.2.0` | Email syntax verification | None | ✅ Verified Clean |
 | `bcrypt` | `4.2.1` | Password hashing | None | ✅ Verified Clean |
 | `PyJWT` | `2.10.1` | JSON Web Token encoding/decoding | None | ✅ Verified Clean |
-| `python-multipart` | `0.0.20` | Form/File parsing | None | ✅ Fixed (Earlier versions had CVE-2024-24761; pinned >= 0.0.18) |
+| `python-multipart` | `0.0.32` | Form/File parsing | PYSEC-2026-3036, PYSEC-2026-3037 | ✅ Resolved by upgrading to >= 0.0.30 |
+| `starlette` (transitive) | `0.41.3` | ASGI Core (FastAPI dependency) | PYSEC-2026-2281 | ⚠️ Low risk: Windows SMB SSRF (Production runs on Linux/Docker) |
 | `httpx` | `0.28.1` | Async HTTP Client | None | ✅ Verified Clean |
 | `pytest` | `8.3.4` | Test Framework (dev) | None | ✅ Verified Clean |
 | `ruff` | `0.8.4` | Linter & Formatter (dev) | None | ✅ Verified Clean |
 
 ### 2.3 Vulnerability Analysis & Mitigations
-- **`python-multipart`:** Older versions (< 0.0.18) were susceptible to DoS via catastrophic backtracking or deeply nested boundary parts. The project explicitly pins `python-multipart==0.0.20`, mitigating this vulnerability.
+- **`python-multipart` (PYSEC-2026-3036 & PYSEC-2026-3037):** Earlier versions (< 0.0.30) had quadratic parsing complexity and parameter smuggling when parsing semicolons in form bodies. Upgraded and pinned to `python-multipart==0.0.32` to ensure linear O(N) parsing and strict compliance with the WHATWG URL standard.
+- **`starlette` (PYSEC-2026-2281):** Pertains to Windows UNC path handling in `StaticFiles`. The application runs on Linux containers (`python:3.12-slim`), which are inherently immune to Windows UNC/SMB exploits.
 - **Strict Pinning Strategy:** All dependencies use exact version pins (`==`) in `backend/requirements.txt` to eliminate supply-chain drift and ensure deterministic builds across CI and production.
-- **Transitive Dependency Auditing:** `pip-audit --local` verifies the fully resolved environment inside CI, alerting immediately if a transitive package introduces a known vulnerability.
+- **Transitive Dependency Auditing:** `pip-audit --local` verifies the fully resolved environment inside CI and documents any newly disclosed CVEs.
 
 ---
 

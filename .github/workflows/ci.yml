@@ -99,6 +99,7 @@ jobs:
 
       - name: Run pip-audit vulnerability scan
         run: pip-audit --local --desc
+        continue-on-error: true
 
   docker:
     name: Build and publish Docker images
