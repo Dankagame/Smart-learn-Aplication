@@ -192,7 +192,7 @@ jobs:
           tags: smartlearn-backend:scan
 
       - name: Run Trivy scan on backend image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: smartlearn-backend:scan
           format: "table"
@@ -210,7 +210,7 @@ jobs:
           tags: smartlearn-frontend:scan
 
       - name: Run Trivy scan on frontend image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: smartlearn-frontend:scan
           format: "table"
