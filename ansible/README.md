@@ -46,7 +46,7 @@ flowchart TD
 
 | Role | Responsibility | Security & Mastery Highlights |
 | :--- | :--- | :--- |
-| **`common`** | Baseline OS packages, system time, firewall, and SSH server. | • **SSH Hardening:** Disables root login (`PermitRootLogin no`), disables password authentication (`PasswordAuthentication no`), limits max auth tries (`MaxAuthTries 4`).<br>• **UFW Firewall:** Default deny incoming, rate-limited SSH, allows only required ports (80, 443, 8000).<br>• **Idempotency:** Uses system handlers so `sshd` and `ufw` are only reloaded when changes occur. |
+| **`common`** | Baseline OS packages, system time, firewall, and SSH server. | • **SSH Hardening:** Disables root login (`PermitRootLogin no`), disables password authentication (`PasswordAuthentication no`), limits max auth tries (`MaxAuthTries 4`).<br>• **UFW Firewall:** Default deny incoming, rate-limited SSH, allows only port 80 (HTTP) besides SSH.<br>• **Idempotency:** Uses system handlers so `sshd` and `ufw` are only reloaded when changes occur. |
 | **`docker`** | Official Docker Engine and Compose plugin installation. | • Cleans conflicting packages.<br>• Installs official signed repository via `/etc/apt/keyrings`.<br>• Enables and starts systemd service.<br>• Adds non-root user to `docker` group. |
 | **`app`** | Production application deployment via Docker Compose. | • Secure directory `/opt/smartlearn` (`0750`).<br>• Secrets isolated in `.env` (`0600`).<br>• Pulls images from GitHub Container Registry (`ghcr.io/dankagame/...`).<br>• Automated healthcheck probes on `/health` and `/nginx-health`. |
 
@@ -56,13 +56,13 @@ flowchart TD
 
 | Parameter | Agreed Value | Notes |
 | :--- | :--- | :--- |
-| **Cloud Provider & Region** | AWS (`eu-west-1` Ireland or `us-east-1` N. Virginia) | Low latency, free-tier eligible `t3.micro` or `t2.micro`. |
-| **OS Image** | Ubuntu 22.04 LTS or 24.04 LTS (x86_64) | Consistent with Docker repository configurations. |
+| **Cloud Provider & Region** | AWS `us-east-1` (N. Virginia) | Provisioned by Terraform (`terraform/`), `t3.micro`. |
+| **OS Image** | Ubuntu 24.04 LTS (x86_64) | Looked up by Terraform from Canonical's official AWS account. |
 | **SSH Key Pair** | `~/.ssh/smartlearn-key` / `smartlearn-key.pub` | Generated and shared across deployment components. |
 | **Frontend Port** | `80` (HTTP) | Exposed by UFW and mapped to container port 8080. |
-| **Backend Port** | `8000` (HTTP) | FastAPI backend; healthcheck at `/health`. |
+| **Backend Port** | `8000` (localhost only) | Bound to `127.0.0.1` on the server. The browser reaches the API through Nginx on port 80. |
 | **Database Port** | `5432` (Internal only) | Isolated inside Docker bridge network (`smartlearn-network`). Not exposed on host. |
-| **Container Images** | `ghcr.io/dankagame/smartlearn-backend:latest`<br>`ghcr.io/dankagame/smartlearn-frontend:latest` | Published automatically by GitHub Actions CI pipeline. |
+| **Container Images** | `ghcr.io/dankagame/smartlearn-backend:sha-<commit>`<br>`ghcr.io/dankagame/smartlearn-frontend:sha-<commit>` | Published by the CI pipeline, tagged with the commit SHA. Set the tag with `image_tag` in `inventory/group_vars/all/vars.yml`. |
 
 ---
 
@@ -72,9 +72,13 @@ flowchart TD
 ansible/
 ├── ansible.cfg                    # Default Ansible settings (roles_path, host_key_checking)
 ├── inventory/
-│   ├── hosts.ini                  # Target server IP and connection parameters
+│   ├── hosts.ini                  # Inventory template (committed, no real IP)
+│   ├── hosts.local.ini            # Your copy with the real server IP (git-ignored)
 │   └── group_vars/
-│       └── all.yml                # Global default variables (ports, images, security settings)
+│       └── all/
+│           ├── vars.yml           # Global variables (ports, images, security settings)
+│           └── vault.yml          # Encrypted secrets (Ansible Vault)
+├── requirements.yml               # Required Ansible collections
 ├── playbook.yml                   # Master playbook orchestrating roles
 ├── roles/
 │   ├── common/
@@ -109,7 +113,7 @@ ansible/
    ```
 2. **Install required Ansible collections:**
    ```bash
-   ansible-galaxy collection install community.general community.docker
+   ansible-galaxy collection install -r requirements.yml
    ```
 3. **SSH Key Pair created:**
    ```bash
@@ -138,26 +142,48 @@ You can test immediately using any Ubuntu VM without waiting for cloud provision
 
 ---
 
+## Secrets (Ansible Vault)
+
+The database password and JWT secret key are stored encrypted in `inventory/group_vars/all/vault.yml`. `vars.yml` only refers to them (`{{ vault_postgres_password }}`, `{{ vault_secret_key }}`), so no secret is committed in plain text.
+
+- The vault password lives in `smartlearn.vault.key` in this folder. It is git-ignored; share it with teammates privately, never in Git or chat history.
+- View or edit the secrets:
+  ```bash
+  ansible-vault view inventory/group_vars/all/vault.yml --vault-password-file smartlearn.vault.key
+  ansible-vault edit inventory/group_vars/all/vault.yml --vault-password-file smartlearn.vault.key
+  ```
+- Without the key file, use `--ask-vault-pass` instead of `--vault-password-file smartlearn.vault.key`.
+
+---
+
 ## Running the Playbook
+
+Create your own inventory from the template and put the server IP from `terraform output instance_public_ip` in it:
+
+```bash
+cp inventory/hosts.ini inventory/hosts.local.ini
+```
+
+`hosts.local.ini` is git-ignored. SSH only works from the IP allowed in Terraform's `my_ip`, so run Ansible from that machine.
 
 ### 1. Test connectivity
 ```bash
-ansible -i inventory/hosts.ini webservers -m ping
+ansible -i inventory/hosts.local.ini webservers -m ping
 ```
 
 ### 2. Check syntax
 ```bash
-ansible-playbook -i inventory/hosts.ini playbook.yml --syntax-check
+ansible-playbook -i inventory/hosts.local.ini --vault-password-file smartlearn.vault.key playbook.yml --syntax-check
 ```
 
 ### 3. Dry-run (Check mode)
 ```bash
-ansible-playbook -i inventory/hosts.ini playbook.yml --check
+ansible-playbook -i inventory/hosts.local.ini --vault-password-file smartlearn.vault.key playbook.yml --check
 ```
 
 ### 4. Execute deployment
 ```bash
-ansible-playbook -i inventory/hosts.ini playbook.yml
+ansible-playbook -i inventory/hosts.local.ini --vault-password-file smartlearn.vault.key playbook.yml
 ```
 
 ---
@@ -178,5 +204,5 @@ ansible-playbook -i inventory/hosts.ini playbook.yml
 
   # Verify application endpoints
   curl -I http://<VM_IP>/
-  curl http://<VM_IP>:8000/health
+  curl http://<VM_IP>/health
   ```

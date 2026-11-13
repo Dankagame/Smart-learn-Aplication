@@ -118,11 +118,14 @@ Server configuration is governed by idempotent Ansible playbooks with built-in h
    - Default incoming policy: **DENY**.
    - Default outgoing policy: **ALLOW**.
    - SSH (Port 22): **Rate-limited** (`ufw limit 22/tcp`) to prevent brute-force abuse.
-   - Web ports: Only Port 80 (HTTP) and Port 8000 (API) are explicitly allowed.
+   - Web ports: Only Port 80 (HTTP) is allowed. The backend API (8000) is bound to `127.0.0.1` and reached through Nginx, so it is not exposed even if a firewall layer were misconfigured.
    - PostgreSQL (Port 5432): **Blocked from public internet**; strictly isolated within Docker's internal bridge network.
 3. **Secrets & File Permissions (`roles/app/tasks/main.yml`):**
    - Application directory `/opt/smartlearn` set to `0750` mode, owned by `ubuntu:ubuntu`.
    - Production `.env` file containing database passwords and JWT secrets is restricted to `0600` permissions (read/write by owner only).
+   - The source secrets are encrypted with **Ansible Vault** (`inventory/group_vars/all/vault.yml`); the vault password file is git-ignored.
+4. **Image Pinning:**
+   - Containers are deployed from immutable commit-SHA tags (`sha-<commit>`), not `latest`, so every deployment is traceable to a reviewed commit.
 
 ---
 

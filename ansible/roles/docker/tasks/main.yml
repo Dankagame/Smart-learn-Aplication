@@ -35,6 +35,7 @@
 - name: Update apt cache after adding Docker repository
   ansible.builtin.apt:
     update_cache: true
+    cache_valid_time: 3600
 
 - name: Install Docker CE and Compose plugin
   ansible.builtin.apt:

@@ -34,15 +34,14 @@
     cmd: docker compose pull
     chdir: "{{ app_dir }}"
   register: compose_pull_result
-  changed_when: "'Downloaded' in compose_pull_result.stdout or 'Pulling' in compose_pull_result.stderr"
-  failed_when: false # Allow offline/local builds during development testing
+  changed_when: false
 
 - name: Start or reconcile application containers
   ansible.builtin.command:
     cmd: docker compose up -d --remove-orphans
     chdir: "{{ app_dir }}"
   register: compose_up_result
-  changed_when: "'Started' in compose_up_result.stdout or 'Recreated' in compose_up_result.stdout or 'Created' in compose_up_result.stdout"
+  changed_when: "'Started' in (compose_up_result.stdout + compose_up_result.stderr) or 'Recreated' in (compose_up_result.stdout + compose_up_result.stderr) or 'Created' in (compose_up_result.stdout + compose_up_result.stderr)"
 
 - name: Wait for backend API to be healthy
   ansible.builtin.uri:

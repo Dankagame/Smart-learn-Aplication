@@ -41,4 +41,4 @@
         msg: >
           SmartLearn has been successfully configured and deployed on {{ inventory_hostname }} ({{ ansible_host }}).
           Web Interface: http://{{ ansible_host }}:{{ frontend_port }}
-          API Healthcheck: http://{{ ansible_host }}:{{ backend_port }}/health
+          API Healthcheck: http://{{ ansible_host }}/health
