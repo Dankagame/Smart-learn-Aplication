@@ -1,0 +1,16 @@
+---
+app_dir: "/opt/smartlearn"
+app_user: "ubuntu"
+app_group: "ubuntu"
+
+backend_port: 8000
+frontend_port: 80
+db_port: 5432
+
+image_tag: "sha-d9448bf"
+docker_backend_image: "ghcr.io/dankagame/smartlearn-backend:{{ image_tag }}"
+docker_frontend_image: "ghcr.io/dankagame/smartlearn-frontend:{{ image_tag }}"
+docker_db_image: "postgres:16-alpine"
+
+healthcheck_retries: 15
+healthcheck_delay: 5

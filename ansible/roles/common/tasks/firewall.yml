@@ -1,0 +1,33 @@
+---
+# ==============================================================================
+# Firewall Configuration (UFW)
+# ==============================================================================
+
+- name: Set UFW default incoming policy to DENY
+  community.general.ufw:
+    direction: incoming
+    default: deny
+
+- name: Set UFW default outgoing policy to ALLOW
+  community.general.ufw:
+    direction: outgoing
+    default: allow
+
+- name: Allow SSH with rate limiting
+  community.general.ufw:
+    rule: limit
+    port: "{{ ssh_port | string }}"
+    proto: tcp
+    comment: "Rate-limited SSH access"
+
+- name: Allow application incoming ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item | string }}"
+    proto: tcp
+    comment: "SmartLearn web/api service port {{ item }}"
+  loop: "{{ firewall_allowed_tcp_ports }}"
+
+- name: Enable UFW firewall service
+  community.general.ufw:
+    state: enabled
