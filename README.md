@@ -1,8 +1,11 @@
 # SmartLearn
 
 [![CI](https://github.com/Dankagame/Smart-learn-Aplication/actions/workflows/ci.yml/badge.svg)](https://github.com/Dankagame/Smart-learn-Aplication/actions/workflows/ci.yml)
+[![Checkov](https://github.com/Dankagame/Smart-learn-Aplication/actions/workflows/checkov.yml/badge.svg)](https://github.com/Dankagame/Smart-learn-Aplication/actions/workflows/checkov.yml)
 
 > **Study smarter, even on low data.**
+
+**Live app:** [http://44.200.2.73](http://44.200.2.73) · **API health:** [http://44.200.2.73/health](http://44.200.2.73/health)
 
 SmartLearn is a lightweight **web application** that runs in any web browser, so there is no app to download or install. Secondary school students in Rwanda and across East Africa can use it to find curriculum-aligned study materials and practise with quizzes before their national exams. Teachers get a simple, low-cost way to share notes and quizzes with all of their students.
 
@@ -22,6 +25,7 @@ SmartLearn is a lightweight **web application** that runs in any web browser, so
 - [Running the Tests](#running-the-tests)
 - [Linting and Code Style](#linting-and-code-style)
 - [Continuous Integration](#continuous-integration)
+- [Cloud Deployment (Terraform + Ansible)](#cloud-deployment-terraform--ansible)
 - [Security Practices](#security-practices)
 - [Branch Protection Rules](#branch-protection-rules)
 - [Development Workflow](#development-workflow)
@@ -77,7 +81,9 @@ SmartLearn gives students **one organized place** to find curriculum-aligned lea
 | **Tools & DevOps** | Git, GitHub, GitHub Projects | Version control, code review through pull requests, and agile planning. |
 | | Docker, Docker Compose | Each service runs in its own container, so the whole app starts the same way on every machine. |
 | | GitHub Actions, GitHub Container Registry | CI runs lint, tests, and Docker builds on every push and pull request, then publishes the images. |
-| | *Planned:* Terraform, cloud deployment | Infrastructure as code and hosting, added later in the course. |
+| | Terraform, AWS (VPC, EC2) | Builds the cloud network and server as code, so the environment can be recreated or deleted with one command. |
+| | Ansible | Hardens the server, installs Docker, and deploys the app the same way every time. |
+| | Checkov, Trivy, pip-audit | Scan the Terraform code, the Docker images, and the Python dependencies for security problems. |
 
 ## Architecture Overview
 
@@ -116,9 +122,16 @@ Smart-learn-Aplication/
 │   ├── pages/              login, register, dashboard
 │   ├── css/
 │   └── js/                 api.js (API client), auth.js, main.js
-├── .github/CODEOWNERS
+├── terraform/              AWS infrastructure as code (see terraform/README.md)
+│   └── modules/            network (VPC, subnet, firewall) and compute (EC2 server)
+├── ansible/                server setup and app deployment (see ansible/README.md)
+│   └── roles/              common (hardening), docker, app
+├── .github/
+│   ├── workflows/          ci.yml (lint, test, build, scans), checkov.yml (Terraform scan)
+│   └── CODEOWNERS
 ├── .gitignore
 ├── LICENSE
+├── SECURITY.md             security findings, fixes, and accepted risks
 └── README.md
 ```
 
@@ -378,6 +391,60 @@ ruff format --check .
 pytest
 ```
 
+## Cloud Deployment (Terraform + Ansible)
+
+SmartLearn runs on AWS. Two tools take it from nothing to a running website:
+
+```
+ Terraform                         Ansible                          Browser
+ builds the server       ──►       sets it up and deploys   ──►    http://44.200.2.73
+ VPC, subnet, firewall,            SSH hardening, firewall,
+ Ubuntu 24.04 EC2                  Docker, SmartLearn containers
+```
+
+| Link | What it is |
+|------|------------|
+| [http://44.200.2.73](http://44.200.2.73) | The live SmartLearn web app |
+| [http://44.200.2.73/health](http://44.200.2.73/health) | API health check: returns `{"status":"ok","database":"connected"}` |
+| [terraform/README.md](terraform/README.md) | How to build the AWS infrastructure, variables, and commands |
+| [ansible/README.md](ansible/README.md) | How to configure the server and deploy the app, and how secrets are handled |
+| [SECURITY.md](SECURITY.md) | Security scan results, fixes, and accepted risks |
+| [Checkov workflow](https://github.com/Dankagame/Smart-learn-Aplication/actions/workflows/checkov.yml) | Terraform security scan runs |
+| [CI workflow](https://github.com/Dankagame/Smart-learn-Aplication/actions/workflows/ci.yml) | Lint, tests, image builds, and container scans |
+
+### Deploy from scratch
+
+```bash
+cd terraform
+terraform init
+terraform apply
+terraform output instance_public_ip
+
+cd ../ansible
+cp inventory/hosts.ini inventory/hosts.local.ini
+ansible-galaxy collection install -r requirements.yml
+ansible-playbook -i inventory/hosts.local.ini --vault-password-file smartlearn.vault.key playbook.yml
+```
+
+Put the IP from `terraform output` into `inventory/hosts.local.ini` before running the playbook. The vault password file is shared privately within the team and is never committed.
+
+| Step | Result |
+|------|--------|
+| `terraform apply` | 9 AWS resources: VPC, subnet, internet gateway, route table and association, security group, locked default security group, key pair, and a `t3.micro` Ubuntu server |
+| `ansible-playbook` (first run) | Server hardened, Docker installed, SmartLearn running and health-checked |
+| `ansible-playbook` (second run) | `changed=0`: the playbook is idempotent |
+
+### Who exposes what
+
+| Port | Open to | Why |
+|------|---------|-----|
+| 80 | Everyone | The website. Nginx also forwards API calls to the backend |
+| 22 | The admin's IP only | SSH for Terraform outputs and Ansible |
+| 8000 | Nobody outside the server | The backend listens on `127.0.0.1` only |
+| 5432 | Nobody outside Docker | The database stays inside the Docker network |
+
+The server's IP changes if it is destroyed and rebuilt with Terraform. Update the links above after a rebuild. Run `terraform destroy` to delete everything when it is no longer needed.
+
 ## Security Practices
 
 We follow a **"shift left"** approach: security is built in from the first commit, not added at the end.
@@ -387,6 +454,10 @@ We follow a **"shift left"** approach: security is built in from the first commi
 - **Password hashing:** passwords are hashed with bcrypt and are never stored or returned as plain text.
 - **Token authentication:** protected endpoints require a JWT token, and role checks stop students from using teacher actions (and the reverse).
 - **Protected `main` branch:** every change is reviewed and must pass CI before it is merged (see below).
+- **Infrastructure scanning:** Checkov scans the Terraform code on every pull request, and Trivy and pip-audit scan the Docker images and Python dependencies.
+- **Hardened server:** SSH accepts keys only from the admin's IP, the firewall opens only port 80, and production secrets are encrypted with Ansible Vault.
+
+Every finding, fix, and accepted risk is documented in [SECURITY.md](SECURITY.md).
 
 ## Branch Protection Rules
 
