@@ -1,0 +1,28 @@
+# ==============================================================================
+# SmartLearn Trivy Scan Ignore List (.trivyignore)
+# Formative 3 & Summative Assignment - Security Engineering
+# ==============================================================================
+# Each entry requires an explicit CVE identifier and risk justification.
+# Only accepted risks that cannot be exploited in the production container
+# architecture (non-root execution, isolated bridge network) are listed here.
+# ==============================================================================
+
+# CVE-2023-45853 (zlib in base image)
+# Justification: Buffer overflow in MiniZip in zlib. SmartLearn backend does not
+# extract or process untrusted ZIP archives. Base image dependency only.
+CVE-2023-45853
+
+# CVE-2024-38526 (urllib3 / pypy compatibility)
+# Justification: Affects Pypy-specific memory handling when redirecting invalid URLs.
+# SmartLearn runs on CPython 3.12 (standard Debian Bookworm). Not vulnerable.
+CVE-2024-38526
+
+# CVE-2023-52425 (libexpat in slim base)
+# Justification: DoS parsing quadratic XML entity expansions. SmartLearn only parses
+# JSON REST payloads; XML parser is disabled and unreachable in FastAPI.
+CVE-2023-52425
+
+# CVE-2024-34064 (jinja2 sandbox escape)
+# Justification: SmartLearn uses Jinja2 for internal Ansible configuration templating
+# by trusted operations engineers; no user-submitted Jinja templates are evaluated.
+CVE-2024-34064

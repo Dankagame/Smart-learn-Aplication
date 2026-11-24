@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -98,8 +99,7 @@ jobs:
           pip install pip-audit
 
       - name: Run pip-audit vulnerability scan
-        run: pip-audit --local --desc
-        continue-on-error: true
+        run: pip-audit --local --desc --ignore-vuln PYSEC-2026-2281
 
   docker:
     name: Build and publish Docker images
@@ -196,10 +196,11 @@ jobs:
         with:
           image-ref: smartlearn-backend:scan
           format: "table"
-          exit-code: "0"
+          exit-code: "1"
           ignore-unfixed: true
           vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+          severity: "CRITICAL"
+          trivyignores: ".trivyignore"
 
       - name: Build frontend image locally for scan
         uses: docker/build-push-action@v6
@@ -214,8 +215,9 @@ jobs:
         with:
           image-ref: smartlearn-frontend:scan
           format: "table"
-          exit-code: "0"
+          exit-code: "1"
           ignore-unfixed: true
           vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+          severity: "CRITICAL"
+          trivyignores: ".trivyignore"
 

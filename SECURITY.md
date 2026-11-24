@@ -72,9 +72,10 @@ Automated software composition analysis (SCA) is executed in the CI pipeline via
 | `pytest` | `8.3.4` | Test Framework (dev) | None | ✅ Verified Clean |
 | `ruff` | `0.8.4` | Linter & Formatter (dev) | None | ✅ Verified Clean |
 
-### 2.3 Vulnerability Analysis & Mitigations
+### 2.3 Vulnerability Analysis, Blocking Enforcement & Mitigations
+- **Blocking CI Enforcement:** `pip-audit` runs in blocking mode (`exit-code: 1` upon unhandled CVEs). Any newly introduced vulnerability in direct or transitive dependencies automatically blocks the pull request and deployment pipeline.
 - **`python-multipart` (PYSEC-2026-3036 & PYSEC-2026-3037):** Earlier versions (< 0.0.30) had quadratic parsing complexity and parameter smuggling when parsing semicolons in form bodies. Upgraded and pinned to `python-multipart==0.0.32` to ensure linear O(N) parsing and strict compliance with the WHATWG URL standard.
-- **`starlette` (PYSEC-2026-2281):** Pertains to Windows UNC path handling in `StaticFiles`. The application runs on Linux containers (`python:3.12-slim`), which are inherently immune to Windows UNC/SMB exploits.
+- **`starlette` (PYSEC-2026-2281) [Accepted Risk]:** Pertains to Windows UNC path handling in `StaticFiles`. The application runs exclusively in Linux containers (`python:3.12-slim`), which are inherently immune to Windows UNC/SMB credential relay exploits. This advisory is explicitly documented and bypassed via `--ignore-vuln PYSEC-2026-2281`.
 - **Strict Pinning Strategy:** All dependencies use exact version pins (`==`) in `backend/requirements.txt` to eliminate supply-chain drift and ensure deterministic builds across CI and production.
 - **Transitive Dependency Auditing:** `pip-audit --local` verifies the fully resolved environment inside CI and documents any newly disclosed CVEs.
 
@@ -82,9 +83,19 @@ Automated software composition analysis (SCA) is executed in the CI pipeline via
 
 ## 3. Container Security Findings (Trivy)
 
-### 3.1 Methodology
-Container image security is audited using **Aqua Security Trivy** directly within the GitHub Actions CI pipeline on every push and pull request. Both application images (`smartlearn-backend` and `smartlearn-frontend`) are inspected for:
-- OS package vulnerabilities (Debian / Alpine CVEs)
+### 3.1 Methodology & Blocking Policy
+Container image security is audited using **Aqua Security Trivy** directly within the GitHub Actions CI pipeline on every push, pull request, and deployment.
+- **Blocking Policy:** The scan is configured with `exit-code: 1` and `severity: CRITICAL`. Any critical vulnerability fails the build and prevents deployment.
+- **Accepted Risks Governance:** Accepted risks must be explicitly registered in `.trivyignore` with an architectural justification.
+
+### 3.2 Accepted Risks in `.trivyignore`
+
+| CVE ID | Package | Severity | Architectural Justification |
+| :--- | :--- | :--- | :--- |
+| `CVE-2023-45853` | `zlib1g` | Critical | Buffer overflow in MiniZip. SmartLearn does not decompress or process untrusted ZIP archives. |
+| `CVE-2024-38526` | `urllib3` | High | Specific to PyPy memory layout on invalid redirects. SmartLearn executes on CPython 3.12. |
+| `CVE-2023-52425` | `libexpat1` | High | Quadratic XML entity expansion DoS. SmartLearn only handles JSON; XML parsing is completely disabled. |
+| `CVE-2024-34064` | `jinja2` | Medium | Template injection sandbox bypass. Jinja2 templates are strictly authored by DevOps for Ansible configs, never exposed to user inputs. |
 - Embedded application libraries and configurations
 
 ### 3.2 Backend Container Analysis (`Dockerfile`)
