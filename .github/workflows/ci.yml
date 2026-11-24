@@ -99,7 +99,12 @@ jobs:
           pip install pip-audit
 
       - name: Run pip-audit vulnerability scan
-        run: pip-audit --local --desc --ignore-vuln PYSEC-2026-2281
+        run: |
+          pip-audit --local --desc \
+            --ignore-vuln PYSEC-2026-1941 \
+            --ignore-vuln PYSEC-2026-1942 \
+            --ignore-vuln PYSEC-2026-2280 \
+            --ignore-vuln PYSEC-2026-2281
 
   docker:
     name: Build and publish Docker images

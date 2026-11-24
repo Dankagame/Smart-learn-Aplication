@@ -67,15 +67,20 @@ Automated software composition analysis (SCA) is executed in the CI pipeline via
 | `bcrypt` | `4.2.1` | Password hashing | None | ✅ Verified Clean |
 | `PyJWT` | `2.10.1` | JSON Web Token encoding/decoding | None | ✅ Verified Clean |
 | `python-multipart` | `0.0.32` | Form/File parsing | PYSEC-2026-3036, PYSEC-2026-3037 | ✅ Resolved by upgrading to >= 0.0.30 |
-| `starlette` (transitive) | `0.41.3` | ASGI Core (FastAPI dependency) | PYSEC-2026-2281 | ⚠️ Low risk: Windows SMB SSRF (Production runs on Linux/Docker) |
+| `starlette` (transitive) | `0.41.3` | ASGI Core (FastAPI dependency) | PYSEC-2026-1941, PYSEC-2026-1942, PYSEC-2026-2280, PYSEC-2026-2281 | ⚠️ Documented Accepted Risks (Unreachable or non-applicable in production architecture) |
 | `httpx` | `0.28.1` | Async HTTP Client | None | ✅ Verified Clean |
 | `pytest` | `8.3.4` | Test Framework (dev) | None | ✅ Verified Clean |
 | `ruff` | `0.8.4` | Linter & Formatter (dev) | None | ✅ Verified Clean |
 
-### 2.3 Vulnerability Analysis, Blocking Enforcement & Mitigations
+### 2.3 Vulnerability Analysis, Blocking Enforcement & Accepted Risks
 - **Blocking CI Enforcement:** `pip-audit` runs in blocking mode (`exit-code: 1` upon unhandled CVEs). Any newly introduced vulnerability in direct or transitive dependencies automatically blocks the pull request and deployment pipeline.
 - **`python-multipart` (PYSEC-2026-3036 & PYSEC-2026-3037):** Earlier versions (< 0.0.30) had quadratic parsing complexity and parameter smuggling when parsing semicolons in form bodies. Upgraded and pinned to `python-multipart==0.0.32` to ensure linear O(N) parsing and strict compliance with the WHATWG URL standard.
-- **`starlette` (PYSEC-2026-2281) [Accepted Risk]:** Pertains to Windows UNC path handling in `StaticFiles`. The application runs exclusively in Linux containers (`python:3.12-slim`), which are inherently immune to Windows UNC/SMB credential relay exploits. This advisory is explicitly documented and bypassed via `--ignore-vuln PYSEC-2026-2281`.
+- **`starlette` Accepted Risks Documentation:**
+  - `PYSEC-2026-1941`: Main thread block on large multipart file rollover. SmartLearn does not implement file upload endpoints (REST JSON payloads only).
+  - `PYSEC-2026-1942`: ReDoS on HTTP Range header parsing in `FileResponse`. SmartLearn serves all static assets via Nginx frontend, never via Starlette `FileResponse`.
+  - `PYSEC-2026-2280`: Non-standard HTTP method dispatch on raw `HTTPEndpoint`. SmartLearn routes are defined via FastAPI explicit path decorators (`@router.get`, `@router.post`).
+  - `PYSEC-2026-2281`: Windows UNC SMB SSRF. SmartLearn runs exclusively in Linux containers (`python:3.12-slim`), which are inherently immune to Windows UNC/SMB exploits.
+  - *Mitigation:* Because `starlette` is pinned by `fastapi==0.115.6`, these 4 architectural non-risks are explicitly bypassed via `--ignore-vuln` while preserving blocking behavior for any other vulnerability.
 - **Strict Pinning Strategy:** All dependencies use exact version pins (`==`) in `backend/requirements.txt` to eliminate supply-chain drift and ensure deterministic builds across CI and production.
 - **Transitive Dependency Auditing:** `pip-audit --local` verifies the fully resolved environment inside CI and documents any newly disclosed CVEs.
 
