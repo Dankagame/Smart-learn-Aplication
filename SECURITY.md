@@ -149,60 +149,105 @@ Server configuration is governed by idempotent Ansible playbooks with built-in h
 ### 5.1 IaC Scanning Tool
 
 - **Tool:** [Checkov](https://www.checkov.io/) 3.x, a static analysis scanner for infrastructure as code.
-- **Workflow:** `.github/workflows/checkov.yml` scans the `terraform/` folder, including both modules, on every pull request that changes Terraform code, on pushes to `main`, and on demand.
-- **Failure policy:** `soft_fail: false`, so any failed check fails the pull request. The accepted findings below are skipped by ID in the workflow, so a new problem can never hide behind them.
+- **Scope:** the whole `terraform/` folder: the root configuration and all nine modules (`network`, `security`, `encryption`, `registry`, `database`, `bastion`, `compute`, `loadbalancer`, `cicd`).
+- **Failure policy:** `soft-fail: false`, so any failed check fails the build.
+- **Config file:** `terraform/.checkov.yaml` lists the skipped check IDs. Every skip is justified in section 5.5 below; a check that is not on that list can never be hidden.
 
 Run the same scan locally:
 
 ```bash
-checkov -d terraform --framework terraform --compact
+checkov -d terraform --config-file terraform/.checkov.yaml
 ```
 
 ### 5.2 Scan Results Summary
 
-| Stage | Passed | Failed |
-|-------|--------|--------|
-| First scan | 12 | 9 |
-| After fixes | 15 | 6 |
-| In CI, with the 6 accepted checks skipped | 15 | 0 |
+| Stage | Resources | Passed | Failed |
+|-------|-----------|--------|--------|
+| F3: first scan (one public server) | 10 | 12 | 9 |
+| F3: after fixes | 10 | 15 | 6 accepted |
+| Summative: first scan of the new architecture | 65 | 187 | 25 |
+| Summative: after fixes | 65 | 272 | 20 |
+| Summative: in CI with `.checkov.yaml` | 65 | 230 | **0** |
+| Summative: CloudFront module added | 66 | 236 | **0** |
 
-### 5.3 Controls Already in Place (passed on the first scan)
+### 5.3 Controls in Place
 
 | Check | Control | How |
 |-------|---------|-----|
-| CKV_AWS_24 | SSH is not open to the internet | Port 22 allows only the admin IP (`var.my_ip`, a `/32`) |
-| CKV_AWS_8 | Server disk is encrypted at rest | `root_block_device { encrypted = true }` |
-| CKV_AWS_79 | IMDSv1 is disabled | `metadata_options { http_tokens = "required" }` (IMDSv2 only) |
-| CKV_AWS_386 | No look-alike or malicious AMIs | AMI lookup limited to Canonical's account `099720109477` |
-| CKV_AWS_23 | Every security group rule is documented | Each rule has a `description` |
-| CKV_AWS_41 | No AWS keys in code | Credentials come from an AWS CLI profile, never from `.tf` files |
+| CKV_AWS_8 | All server disks encrypted at rest | `root_block_device { encrypted = true }` on the bastion and app server |
+| CKV_AWS_79 | IMDSv1 disabled | `http_tokens = "required"` on every instance |
+| CKV_AWS_88 | No auto-assigned public IPs | App server has `associate_public_ip_address = false` and subnets set `map_public_ip_on_launch = false`; only the bastion has a deliberate Elastic IP |
+| CKV_AWS_16 / CKV_AWS_17 | RDS encrypted and private | `storage_encrypted = true`, `publicly_accessible = false` |
+| CKV_AWS_129 | RDS logs exported | `enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]` |
+| CKV_AWS_133 | RDS backups enabled | 7 days of automatic backups |
+| CKV_AWS_161 | RDS IAM authentication | `iam_database_authentication_enabled = true` |
+| CKV_AWS_51 / CKV_AWS_163 | ECR tags immutable, scanned on push | `image_tag_mutability = "IMMUTABLE"`, `scan_on_push = true` |
+| CKV_AWS_136 | ECR encrypted with KMS | `encryption_type = "KMS"` |
+| CKV_AWS_131 | ALB drops invalid headers | `drop_invalid_header_fields = true` |
+| CKV_AWS_7 | KMS key rotation | `enable_key_rotation = true` |
+| CKV_AWS_338 | Logs kept for a year | `retention_in_days = 365` |
+| CKV_AWS_23 | Every security group rule documented | Each rule has a `description` |
+| CKV_AWS_41 | No AWS keys in code | Terraform uses a CLI profile; CD uses GitHub OIDC with short-lived tokens |
 
 ### 5.4 Findings Fixed
 
+Findings accepted as risks in F3 that the Summative architecture now fixes:
+
+| Check | F3 status | Summative fix |
+|-------|-----------|---------------|
+| CKV_AWS_130 | Accepted: subnet gave every server a public IP | `map_public_ip_on_launch = false`. The app server and database live in private subnets; only the bastion has a public IP |
+| CKV2_AWS_11 | Accepted: no VPC flow logs | `aws_flow_log` records rejected traffic to a KMS-encrypted CloudWatch log group |
+| CKV2_AWS_41 | Accepted: no IAM role on EC2 | The app server has a least-privilege role (ECR pull, its own log group, two SSM parameters). The bastion has a role limited to Session Manager |
+| CKV_AWS_135 | Accepted: not EBS-optimized | `ebs_optimized = true`, set while the servers were being rebuilt anyway |
+
+New findings in the Summative scan, fixed before merge:
+
 | Check | Finding | Fix |
 |-------|---------|-----|
-| CKV_AWS_382 | Outbound traffic allowed on all ports to `0.0.0.0/0` | Outbound limited to TCP 443 (HTTPS: Docker images, GitHub, updates) and TCP 80 (Ubuntu package mirrors). Verified with `apt-get update` on the server |
-| CKV2_AWS_12 | The VPC's default security group allowed traffic | `aws_default_security_group` manages it with no rules, so it denies everything |
-| CKV_AWS_126 | No detailed monitoring on the EC2 instance | `monitoring = true` (1-minute CloudWatch metrics) |
+| CKV2_AWS_69 | RDS allowed unencrypted connections | Parameter group sets `rds.force_ssl = 1` |
+| CKV_AWS_118 | No RDS enhanced monitoring | `monitoring_interval = 60` with a dedicated monitoring role |
+| CKV_AWS_158 | Log groups not encrypted with KMS | One customer managed key (`alias/smartlearn`) encrypts the app and flow log groups |
+| CKV_AWS_337 | SSM secrets used the default AWS key | The database password and URL parameters use the same customer managed key |
+| CKV_AWS_394 | AZ lookup could silently grow | The lookup is pinned to `us-east-1a` and `us-east-1b` with a `zone-name` filter |
+| CKV_AWS_382 | (F3) Outbound allowed on all ports | Outbound limited per security group: 443/80 through NAT for the app, 5432 to the database, nothing from the database |
+| CKV2_AWS_12 | (F3) Default security group allowed traffic | `aws_default_security_group` with no rules |
 
 ### 5.5 Findings Accepted (with justification)
 
-| Check | Finding | Why it is accepted | Risk reduction |
-|-------|---------|--------------------|----------------|
-| CKV_AWS_260 | Port 80 open to `0.0.0.0/0` | SmartLearn is a public website; students must reach it from anywhere | Only port 80 is public. The API (8000) and database (5432) are not opened in the security group |
-| CKV_AWS_130 | Subnet assigns public IPs | The single server must be reachable for the website and for Ansible; there is no load balancer or bastion in this design | Inbound limited by the security group; SSH only from the admin IP |
-| CKV_AWS_135 | Instance not marked EBS-optimized | `t3` instances are EBS-optimized by default. Setting the flag on the running server would force it to be destroyed and rebuilt | No security impact; performance setting only |
-| CKV2_AWS_5 | Security group "not attached" | False positive: the group is created in the `network` module and attached in the `compute` module, which Checkov does not follow across modules | Verified attached with `aws ec2 describe-instances` |
-| CKV2_AWS_11 | No VPC flow logs | Needs a CloudWatch log group, an IAM role, and KMS encryption, adding cost and complexity for a one-server student project | Detailed monitoring is enabled. Recommended before real production use |
-| CKV2_AWS_41 | No IAM role on the EC2 instance | The server never calls AWS APIs, so a role would only add permissions it does not need (least privilege) | No AWS credentials exist on the server at all |
+**False positives**
+
+| Check | Finding | Why it does not apply |
+|-------|---------|-----------------------|
+| CKV2_AWS_5 | Security groups "not attached" | They are created in the `security` module and attached in `bastion`, `compute`, `database` and `loadbalancer`. Checkov does not follow references across modules |
+| CKV_AWS_24 | SSH open to `0.0.0.0/0` on the app server | The rule references the bastion security group, not a CIDR. No IP range is allowed |
+| CKV_AWS_260 (app) | Port 80 open to `0.0.0.0/0` on the app server | The rule references the ALB security group only |
+| CKV_AWS_109 / 111 / 356 | KMS key policy uses `kms:*` on `*` | This is the AWS default key policy statement that delegates control of the key to the account's IAM. In a key policy, `*` means "this key" |
+
+**Accepted risks**
+
+| Check | Finding | Why it is accepted | Risk reduction / plan |
+|-------|---------|--------------------|------------------------|
+| CKV_AWS_260 (ALB) | Port 80 open to the internet | SmartLearn is a public website | Only the ALB is public; it forwards only to the app server on port 80 |
+| CKV_AWS_2, CKV_AWS_103, CKV_AWS_378, CKV2_AWS_20 | No HTTPS | HTTPS needs a registered domain and an ACM certificate, which the project does not own | First item before real users: buy a domain, add an ACM certificate, add a 443 listener and redirect 80 to 443 |
+| CKV2_AWS_28 | No WAF on the ALB | AWS WAF costs a monthly fee per web ACL plus per rule | `drop_invalid_header_fields`, private subnets and tight security groups. Add AWS managed rule groups before production |
+| CKV_AWS_91 | No ALB access logs | Needs an S3 bucket with its own policy, encryption and lifecycle | ALB CloudWatch metrics, target health checks and VPC flow logs are on |
+| CKV_AWS_150, CKV_AWS_293 | No deletion protection on ALB and RDS | The environment must be destroyed with `terraform destroy` after grading to stop costs | Both are variables (`db_deletion_protection`); set to `true` for production. RDS keeps 7 days of backups |
+| CKV_AWS_157 | RDS is single-AZ | Multi-AZ doubles the database cost | `db_multi_az` variable; switch to `true` for production. Subnets already span two AZs |
+| CKV_AWS_353 | No Performance Insights | Not needed at this size; enhanced monitoring and slow query logging (over 500 ms) cover the same diagnosis needs | Can be enabled per instance later |
+| CKV_AWS_174, CKV2_AWS_42 | CloudFront uses the default `*.cloudfront.net` certificate | A custom certificate and a TLS 1.2 minimum need a domain the project does not own | Viewers are still redirected to HTTPS. With a domain, attach an ACM certificate and set `TLSv1.2_2021` |
+| CKV_AWS_68, CKV2_AWS_47 | No WAF on CloudFront | Same cost reason as CKV2_AWS_28 | Managed `SecurityHeadersPolicy` adds HSTS and other security headers. Attach one web ACL with AWS managed rules (including Log4j) before production |
+| CKV_AWS_86 | No CloudFront access logs | Needs an S3 log bucket with ACLs enabled | ALB metrics and VPC flow logs are on |
+| CKV_AWS_310 | No origin failover | There is a single origin, the ALB | The ALB already spreads across two AZs |
+| CKV_AWS_374 | No geo restriction | SmartLearn is meant for learners in any country | Can be set per country later |
 
 ### 5.6 Other Infrastructure Security Practices
 
-- **Secrets stay out of Git:** `terraform.tfvars` (admin IP), `*.tfstate` (resource details), and `.terraform/` are in `.gitignore`. A `terraform.tfvars.example` template with a documentation-only IP is committed instead.
-- **Least-privilege SSH, and its trade-off:** SSH accepts only the admin's current IP. When that IP changes, SSH times out until `my_ip` is updated and `terraform apply` is run. This happened during testing and confirmed the rule works.
-- **SSH key authentication:** only the public key (`ed25519`) is uploaded to AWS; the private key never leaves the admin's computer.
-- **Dedicated IAM user for Terraform:** Terraform runs as a separate IAM user with an access key stored in a named AWS CLI profile, not as the root account.
-- **Network layout:** a dedicated VPC (`10.0.0.0/16`) with one public subnet (`10.0.1.0/24`). The internet gateway and route table send only outbound internet traffic through the gateway.
+- **Network layout:** VPC `10.0.0.0/16` across two AZs. Public subnets (`10.0.1.0/24`, `10.0.2.0/24`) hold only the ALB, the bastion and the NAT gateway. Private subnets (`10.0.11.0/24`, `10.0.12.0/24`) hold the app server and the database.
+- **Security group chain:** internet → ALB (80) → app (80); admins → bastion (22) → app (22); app → database (5432). Rules reference security groups, not IP ranges.
+- **Admin access:** SSH to the bastion only from `admin_cidrs`, one `/32` per team member. A validation rule rejects `0.0.0.0/0`.
+- **Secrets:** Terraform generates the database password. It is stored only in SSM Parameter Store, encrypted with the project KMS key, and only the app server's IAM role can read it. No password is stored in Git or in GitHub.
+- **CD access:** GitHub Actions assumes `smartlearn-github-deploy` through OIDC. The trust policy allows only the `main` branch and the `production` environment of this repository. The role can push only to the two ECR repositories and can only open the bastion security group for the runner's IP during a deploy.
+- **Files kept out of Git:** `terraform.tfvars`, `*.tfstate` and `.terraform/` are in `.gitignore`. `terraform.tfvars.example` uses documentation-only IPs.
 
 ---
 

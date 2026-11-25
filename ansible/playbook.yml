@@ -1,22 +1,32 @@
 ---
-# ==============================================================================
-# SmartLearn Master Deployment Playbook
-# Formative 3 - Configuration & App Security
-# ==============================================================================
-- name: Configure and Deploy SmartLearn Application
+- name: Harden the bastion host
+  hosts: bastion
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: common
+      tags:
+        - common
+        - bastion
+        - security
+        - ssh
+        - firewall
+
+- name: Configure and deploy SmartLearn on the private app server
   hosts: webservers
   become: true
   gather_facts: true
 
   pre_tasks:
-    - name: Verify connectivity and gather facts
+    - name: Verify connectivity through the bastion
       ansible.builtin.ping:
 
     - name: Ensure target OS is supported (Debian/Ubuntu family)
       ansible.builtin.assert:
         that:
           - ansible_os_family == "Debian"
-        fail_msg: "This playbook currently supports Debian/Ubuntu family Linux distributions."
+        fail_msg: "This playbook supports Debian/Ubuntu family Linux distributions."
 
   roles:
     - role: common
@@ -39,6 +49,6 @@
     - name: Summary of deployment status
       ansible.builtin.debug:
         msg: >
-          SmartLearn has been successfully configured and deployed on {{ inventory_hostname }} ({{ ansible_host }}).
-          Web Interface: http://{{ ansible_host }}:{{ frontend_port }}
-          API Healthcheck: http://{{ ansible_host }}/health
+          SmartLearn {{ image_tag }} is running on {{ inventory_hostname }} ({{ ansible_host }}).
+          Public URL: {{ app_url }}
+          Health check: {{ app_url }}/health

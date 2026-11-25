@@ -3,4 +3,6 @@
   ansible.builtin.command:
     cmd: docker compose up -d --force-recreate --remove-orphans
     chdir: "{{ app_dir }}"
+  environment:
+    DOCKER_CONFIG: /root/.docker
   changed_when: true
