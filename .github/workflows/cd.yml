@@ -1,0 +1,135 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # Required for AWS OIDC authentication
+  contents: read  # Required for code checkout
+  packages: write # Optional package access
+
+jobs:
+  ci:
+    name: Run CI
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  deploy:
+    name: Deploy to Production
+    needs: [ci]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION || 'eu-west-1' }}
+          audience: sts.amazonaws.com
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Backend image to ECR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/smartlearn-backend:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/smartlearn-backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build and push Frontend image to ECR
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/smartlearn-frontend:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/smartlearn-frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Set up SSH Key and Ansible Vault Password
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          mkdir -p ~/.ansible
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.ansible/vault_pass
+          chmod 600 ~/.ansible/vault_pass
+
+          # Known hosts setup for bastion and target
+          ssh-keyscan -H "${{ secrets.BASTION_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H "${{ secrets.APP_SERVER_PRIVATE_IP }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Install Ansible and Collections
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+          ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Run Ansible Playbook through Bastion Host
+        working-directory: ansible
+        env:
+          ANSIBLE_VAULT_PASSWORD_FILE: ~/.ansible/vault_pass
+          BASTION_HOST: ${{ secrets.BASTION_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
+          APP_HOST: ${{ secrets.APP_SERVER_PRIVATE_IP }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          ansible-playbook -i inventory/hosts.ini playbook.yml \
+            -u ubuntu \
+            --private-key ~/.ssh/id_rsa \
+            --vault-password-file ~/.ansible/vault_pass \
+            --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand=\"ssh -W %h:%p -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ${BASTION_USER}@${BASTION_HOST}\"" \
+            -e "ansible_host=${APP_HOST}" \
+            -e "image_tag=${{ github.sha }}" \
+            -e "docker_backend_image=${ECR_REGISTRY}/smartlearn-backend:${{ github.sha }}" \
+            -e "docker_frontend_image=${ECR_REGISTRY}/smartlearn-frontend:${{ github.sha }}"
+
+      - name: Smoke Test (ALB Health & Readiness)
+        env:
+          ALB_DNS: ${{ secrets.ALB_DNS_NAME }}
+        run: |
+          echo "Starting smoke test targeting ALB at http://${ALB_DNS}/health ..."
+          STATUS=0
+          for i in {1..30}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${ALB_DNS}/health" || true)
+            if [ "$STATUS" -eq 200 ]; then
+              echo "Smoke test passed on attempt $i (HTTP 200 received from /health)."
+              break
+            fi
+            echo "Waiting for service to become healthy... (attempt $i/30, status: $STATUS)"
+            sleep 5
+          done
+
+          if [ "$STATUS" -ne 200 ]; then
+            echo "Error: /health did not return 200 within the timeout period."
+            exit 1
+          fi
+
+          echo "Verifying database readiness via /ready endpoint..."
+          READY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${ALB_DNS}/ready" || true)
+          echo "Readiness status: $READY_STATUS"
+          if [ "$READY_STATUS" -ne 200 ]; then
+            echo "Warning: /ready returned $READY_STATUS (Database may still be initializing)."
+          fi
