@@ -29,3 +29,29 @@ def test_health_rejects_post_requests():
     response = TestClient(app).post("/health")
 
     assert response.status_code == 405
+
+
+def test_readiness_reports_connected_database():
+    with TestClient(app) as client:
+        response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready", "database": "connected"}
+
+
+def test_readiness_reports_unavailable_database(monkeypatch):
+    def failing_connection():
+        raise OperationalError("SELECT 1", {}, Exception("database is down"))
+
+    monkeypatch.setattr(main, "check_db_connection", failing_connection)
+
+    response = TestClient(app).get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "not_ready", "database": "unavailable"}
+
+
+def test_readiness_rejects_post_requests():
+    response = TestClient(app).post("/ready")
+
+    assert response.status_code == 405

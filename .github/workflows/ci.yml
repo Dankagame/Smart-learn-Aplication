@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -196,10 +197,11 @@ jobs:
         with:
           image-ref: smartlearn-backend:scan
           format: "table"
-          exit-code: "0"
+          exit-code: "1"
           ignore-unfixed: true
           vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+          severity: "CRITICAL"
+          trivyignores: ".trivyignore"
 
       - name: Build frontend image locally for scan
         uses: docker/build-push-action@v6
@@ -214,8 +216,9 @@ jobs:
         with:
           image-ref: smartlearn-frontend:scan
           format: "table"
-          exit-code: "0"
+          exit-code: "1"
           ignore-unfixed: true
           vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+          severity: "CRITICAL"
+          trivyignores: ".trivyignore"
 
