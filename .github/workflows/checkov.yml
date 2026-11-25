@@ -2,9 +2,6 @@ name: Checkov
 
 on:
   pull_request:
-    paths:
-      - "terraform/**"
-      - ".github/workflows/checkov.yml"
   push:
     branches:
       - main

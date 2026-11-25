@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import models
@@ -49,3 +49,13 @@ def health_check() -> dict[str, str]:
     except Exception:
         database = "unavailable"
     return {"status": "ok", "database": database}
+
+
+@app.get("/ready", tags=["health"])
+def readiness_check(response: Response) -> dict[str, str]:
+    try:
+        check_db_connection()
+        return {"status": "ready", "database": "connected"}
+    except Exception:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {"status": "not_ready", "database": "unavailable"}
