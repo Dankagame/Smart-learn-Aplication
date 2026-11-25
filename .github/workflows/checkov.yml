@@ -28,7 +28,5 @@ jobs:
         uses: bridgecrewio/checkov-action@v12
         with:
           directory: terraform
-          framework: terraform
-          quiet: true
+          config_file: terraform/.checkov.yaml
           soft_fail: false
-          skip_check: CKV_AWS_130,CKV_AWS_135,CKV_AWS_260,CKV2_AWS_5,CKV2_AWS_11,CKV2_AWS_41
