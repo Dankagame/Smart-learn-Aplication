@@ -11,10 +11,10 @@
 
 ## Operations Quick Reference
 
-- **Production Live URL:** `http://${ALB_DNS_NAME}` (Application Load Balancer)
-- **Liveness Endpoint:** `http://${ALB_DNS_NAME}/health`
-- **Readiness Probe:** `http://${ALB_DNS_NAME}/ready`
-- **AWS Region:** `eu-west-1` (Ireland) / `us-east-1` (N. Virginia)
+- **Production Live URL:** http://smartlearn-alb-521972676.us-east-1.elb.amazonaws.com (Application Load Balancer)
+- **Liveness Endpoint:** http://smartlearn-alb-521972676.us-east-1.elb.amazonaws.com/health
+- **Readiness Probe:** http://smartlearn-alb-521972676.us-east-1.elb.amazonaws.com/ready
+- **AWS Region:** `us-east-1` (N. Virginia)
 
 ---
 
@@ -34,64 +34,75 @@
 
 ## 1. Architecture Overview
 
-SmartLearn operates on a secure, two-tier AWS infrastructure managed through Infrastructure as Code (Terraform) and Configuration as Code (Ansible):
+SmartLearn operates on a secure, multi-AZ AWS production architecture managed through Infrastructure as Code (Terraform) and Configuration as Code (Ansible):
 
 ```mermaid
 flowchart TD
     Client(["Internet Users (Students / Teachers)"])
 
-    subgraph AWS_Cloud ["AWS Cloud (VPC: 10.0.0.0/16)"]
+    subgraph AWS_Cloud ["AWS Cloud (VPC: 10.0.0.0/16 — us-east-1a, us-east-1b)"]
         IGW["Internet Gateway"]
 
-        subgraph Public_Subnet ["Public Subnet (10.0.1.0/24)"]
-            ALB["Application Load Balancer\n(Ports 80 / 443)"]
-            Bastion["Bastion Host (Jump Box)\n(Port 22 - Admin IP Only)"]
+        subgraph Public_Subnets ["Public Subnets"]
+            ALB["Application Load Balancer\n(HTTP 80 — health check /health)"]
+            Bastion["Bastion Host (t3.micro, Elastic IP)\n(SSH 22 — Admin & Runner IP Only)"]
+            NAT["NAT Gateway"]
         end
 
-        subgraph Private_Subnet ["Private Subnet (10.0.2.0/24)"]
-            EC2["App Server EC2 (t3.micro)\n(Ubuntu 22.04 LTS)"]
-            
+        subgraph Private_App_Subnets ["Private App Subnets"]
+            EC2["App Server EC2 (Ubuntu 22.04 LTS)"]
             subgraph Docker_Bridge ["Docker Compose Network"]
-                Frontend["Nginx Frontend\n(Port 8080)"]
-                Backend["FastAPI Backend\n(Port 8000)"]
-                DB[("PostgreSQL 16 DB\n(Port 5432 - Internal Only)")]
+                Frontend["Nginx Frontend (Port 80 -> 8080)"]
+                Backend["FastAPI Backend (Port 8000)"]
             end
         end
 
+        subgraph Private_DB_Subnets ["Private DB Subnets"]
+            RDS[("Managed RDS PostgreSQL 16\n(Port 5432 TLS — App SG Only)")]
+        end
+
+        SSM["AWS SSM Parameter Store\n(/smartlearn/db/url)"]
+        CW["Amazon CloudWatch Logs\n(/smartlearn/app)"]
+
         EC2 --- Frontend
         EC2 --- Backend
-        EC2 --- DB
-        Frontend -->|Reverse Proxy /api| Backend
-        Backend -->|SQL Queries| DB
+        Frontend -->|Reverse Proxy API /health /ready| Backend
+        Backend -->|TLS 5432| RDS
+        EC2 -.->|IAM Instance Role| SSM
+        EC2 -.->|awslogs| CW
+        EC2 -->|443 Egress| NAT
     end
 
     subgraph CI_CD ["CI/CD Pipeline (GitHub Actions)"]
-        OIDC["GitHub OIDC Provider"]
-        ECR[("Amazon ECR\nDocker Registry")]
+        OIDC["GitHub OIDC Provider\n(smartlearn-github-deploy)"]
+        ECR[("Amazon ECR\nImmutable SHA Tags")]
     end
 
-    Client --> IGW --> ALB -->|Forward HTTP| Frontend
-    CI_CD -->|Assume Role via OIDC| AWS_Cloud
-    CI_CD -->|Push Docker Images| ECR
-    CI_CD -->|SSH via Bastion| EC2
+    Client --> IGW --> ALB -->|Port 80| Frontend
+    NAT --> ECR
+    CI_CD -->|Assume Role via OIDC| OIDC
+    OIDC -->|Push SHA Images| ECR
+    OIDC -->|Temporary SG Rule + SSH ProxyJump| Bastion
+    Bastion -->|SSH 22| EC2
 ```
 
 ---
 
 ## 2. Required Secrets & Environment Variables
 
-All sensitive values must be configured in **GitHub Repository Secrets** (`Settings -> Secrets and variables -> Actions`) and the **`production` Environment**:
+All sensitive values must be configured in **GitHub Repository Secrets** (`Settings -> Secrets and variables -> Actions`) and the **`production` Environment** (values come directly from `terraform output`):
 
-| Secret Name | Description | Example / Format |
+| Secret Name | Terraform Output / Source | Example / Format |
 | :--- | :--- | :--- |
-| `AWS_ROLE_ARN` | IAM Role assumed by GitHub Actions via OIDC | `arn:aws:iam::123456789012:role/github-actions-deploy-role` |
-| `AWS_REGION` | Target AWS Deployment Region | `eu-west-1` |
-| `ALB_DNS_NAME` | Public DNS name of the Application Load Balancer | `smartlearn-alb-1234.eu-west-1.elb.amazonaws.com` |
-| `BASTION_HOST` | Public IP or DNS of the Bastion Jump Host | `54.216.x.x` |
-| `BASTION_USER` | SSH Username for the Bastion | `ubuntu` |
-| `APP_SERVER_PRIVATE_IP` | Internal Private IPv4 of the Application Server | `10.0.2.15` |
-| `SSH_PRIVATE_KEY` | Private SSH Key for Bastion and EC2 instances | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
-| `ANSIBLE_VAULT_PASSWORD`| Password to decrypt `vault.yml` in Ansible | Complex alphanumeric string |
+| `AWS_ROLE_ARN` | `terraform output -raw github_actions_role_arn` | `arn:aws:iam::253490787868:role/smartlearn-github-deploy` |
+| `AWS_REGION` | `terraform output -raw aws_region` | `us-east-1` |
+| `ALB_DNS_NAME` | `terraform output -raw alb_url` (hostname) | `smartlearn-alb-521972676.us-east-1.elb.amazonaws.com` |
+| `BASTION_HOST` | `terraform output -raw bastion_public_ip` | `3.94.215.33` |
+| `BASTION_USER` | Default SSH user | `ubuntu` |
+| `BASTION_SECURITY_GROUP_ID` | `terraform output -raw bastion_security_group_id` | `sg-0123456789abcdef0` |
+| `APP_SERVER_PRIVATE_IP` | `terraform output -raw app_private_ip` | `10.0.11.80` |
+| `SSH_PRIVATE_KEY` | Private key matching AWS key pair (`smartlearn-key`) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+| `ANSIBLE_VAULT_PASSWORD` | Password to decrypt `ansible/inventory/group_vars/all/vault.yml` | Complex alphanumeric string |
 
 ---
 
@@ -156,11 +167,9 @@ cd ansible
 # Install necessary collections
 ansible-galaxy collection install -r requirements.yml
 
-# Execute deployment through bastion
+# Execute deployment through bastion (hosts.ini defines [bastion] and [webservers] ProxyCommand)
 ansible-playbook -i inventory/hosts.ini playbook.yml \
   --vault-password-file ~/.ansible/vault_pass \
-  --ssh-common-args="-o ProxyJump=ubuntu@<BASTION_IP>" \
-  -e "ansible_host=<APP_PRIVATE_IP>" \
   -e "image_tag=<COMMIT_SHA>"
 ```
 
@@ -180,8 +189,6 @@ If an incident or regression occurs after a production release:
    cd ansible
    ansible-playbook -i inventory/hosts.ini playbook.yml \
      --vault-password-file ~/.ansible/vault_pass \
-     --ssh-common-args="-o ProxyJump=ubuntu@<BASTION_IP>" \
-     -e "ansible_host=<APP_PRIVATE_IP>" \
      -e "image_tag=<PREVIOUS_GOOD_SHA>"
    ```
 
