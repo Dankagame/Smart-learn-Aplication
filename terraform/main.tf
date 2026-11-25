@@ -112,6 +112,7 @@ module "cicd" {
 
   project_name              = var.project_name
   github_repository         = var.github_repository
+  github_subject_prefix     = var.github_subject_prefix
   ecr_repository_arns       = module.registry.repository_arns
   bastion_security_group_id = module.security.bastion_sg_id
 }

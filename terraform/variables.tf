@@ -32,6 +32,12 @@ variable "github_repository" {
   default     = "Dankagame/Smart-learn-Aplication"
 }
 
+variable "github_subject_prefix" {
+  description = "Immutable OIDC subject prefix GitHub sends for this repository"
+  type        = string
+  default     = "repo:Dankagame@180854761/Smart-learn-Aplication@1449416665"
+}
+
 variable "public_key_path" {
   description = "Path to the SSH public key uploaded to AWS"
   type        = string
