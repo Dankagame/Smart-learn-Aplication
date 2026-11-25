@@ -1,208 +1,200 @@
-# SmartLearn Configuration & Deployment (Ansible)
+# SmartLearn Configuration and Deployment (Ansible)
 
-This directory contains the automated configuration management and application deployment playbooks for **SmartLearn**, prepared for **Formative 3 (Configuration + App Security)**.
+This folder configures the servers created by [Terraform](../terraform/README.md) and deploys SmartLearn on them. The same playbook is used for the first setup, for every release from the CD pipeline, and for rollbacks.
 
-The setup is architected using **Ansible Roles** and designed for **idempotency** to meet the Mastery criteria.
-
----
-
-## Table of Contents
-
-- [Overview & Architecture](#overview--architecture)
-- [Role Breakdown](#role-breakdown)
-- [Shared Infrastructure Agreement](#shared-infrastructure-agreement)
-- [Directory Structure](#directory-structure)
-- [Prerequisites](#prerequisites)
-- [How to Test in Parallel (Local VM)](#how-to-test-in-parallel-local-vm)
-- [Running the Playbook](#running-the-playbook)
-- [Idempotency & Verification](#idempotency--verification)
-- [Hardening & Security Features](#hardening--security-features)
+**Live app:** http://smartlearn-alb-521972676.us-east-1.elb.amazonaws.com
 
 ---
 
-## Overview & Architecture
-
-Ansible configures an Ubuntu server from a bare OS installation to a production-ready, hardened environment running SmartLearn with Docker Compose:
+## What the playbook does
 
 ```mermaid
-flowchart TD
-    AnsibleNode["Ansible Controller (Your Machine / CI)"]
-    TargetVM["Target Ubuntu VM (AWS EC2 / VirtualBox / Multipass)"]
-    
-    AnsibleNode -->|SSH (Key Auth)| TargetVM
-    
-    subgraph TargetVM_Config ["VM Configuration"]
-        R1["Role: common\n- System packages\n- SSH Hardening\n- UFW Firewall"]
-        R2["Role: docker\n- Docker CE Engine\n- Docker Compose plugin\n- User permissions"]
-        R3["Role: app\n- /opt/smartlearn\n- .env (0600) & Compose\n- Healthchecks"]
+flowchart LR
+    ctl["Ansible controller<br/>(laptop or GitHub Actions)"]
+    bastion["Bastion<br/>3.94.215.33"]
+    app["App server<br/>10.0.11.80 (private)"]
+
+    ctl -- "SSH" --> bastion
+    ctl -- "SSH via ProxyCommand" --> bastion -- "SSH" --> app
+
+    subgraph play1["Play 1: bastion"]
+        c1["common<br/>packages, SSH hardening, UFW 22 only"]
     end
-    
-    TargetVM --> TargetVM_Config
+    subgraph play2["Play 2: app server"]
+        c2["common<br/>packages, SSH hardening, UFW 80 + SSH from VPC"]
+        d["docker<br/>Docker CE + Compose plugin"]
+        a["app<br/>ECR login, secrets from SSM,<br/>compose up, health gates"]
+    end
+
+    bastion --- play1
+    app --- play2
 ```
 
+| Role | Runs on | Responsibility |
+|------|---------|----------------|
+| `common` | bastion, app | Baseline packages, UTC time, SSH hardening (`PermitRootLogin no`, `PasswordAuthentication no`, `MaxAuthTries 4`, `X11Forwarding no`), UFW default deny |
+| `docker` | app | Official Docker CE repository, Docker Engine, Compose plugin, `ubuntu` user in the `docker` group |
+| `app` | app | Pulls the release from ECR, writes `.env` and `docker-compose.yml`, starts the containers and refuses to finish until the app and database are healthy |
+
+### The `app` role, step by step
+
+1. **Require `image_tag`**. Every deployment names an exact image, the git commit SHA.
+2. **Install `amazon-ecr-credential-helper`** and point Docker at it. Docker logs in to ECR with the server's IAM role, so there is no registry password anywhere.
+3. **Install the AWS CLI** and read `DATABASE_URL` from SSM Parameter Store (`/smartlearn/db/url`, KMS encrypted). The task uses `no_log`, so the value never appears in output.
+4. **Template `.env`** (mode `0600`) and **`docker-compose.yml`**.
+5. **`docker compose pull`** and **`docker compose up -d`**.
+6. **Wait for `/health`** on the backend, then **assert `database == "connected"`**. A release that cannot reach RDS fails the deploy instead of going live.
+7. **Wait for the frontend** `/nginx-health`.
+8. **Prune images** older than 7 days that no container uses.
+
+The task that matters most for serving traffic is step 6. It turns "containers started" into "the app works end to end".
+
+### Containers on the app server
+
+| Container | Image | Port | Logs |
+|-----------|-------|------|------|
+| `smartlearn-frontend` | `<ecr>/smartlearn-frontend:<sha>` (nginx) | host `80` → `8080`; proxies `/auth`, `/courses`, `/quizzes`, `/health` to the backend | CloudWatch `/smartlearn/app`, stream `frontend-smartlearn-app` |
+| `smartlearn-backend` | `<ecr>/smartlearn-backend:<sha>` (FastAPI) | `127.0.0.1:8000` only | CloudWatch `/smartlearn/app`, stream `backend-smartlearn-app` |
+
+The database is Amazon RDS. There is no database container in production.
+
 ---
 
-## Role Breakdown
+## Directory structure
 
-| Role | Responsibility | Security & Mastery Highlights |
-| :--- | :--- | :--- |
-| **`common`** | Baseline OS packages, system time, firewall, and SSH server. | • **SSH Hardening:** Disables root login (`PermitRootLogin no`), disables password authentication (`PasswordAuthentication no`), limits max auth tries (`MaxAuthTries 4`).<br>• **UFW Firewall:** Default deny incoming, rate-limited SSH, allows only port 80 (HTTP) besides SSH.<br>• **Idempotency:** Uses system handlers so `sshd` and `ufw` are only reloaded when changes occur. |
-| **`docker`** | Official Docker Engine and Compose plugin installation. | • Cleans conflicting packages.<br>• Installs official signed repository via `/etc/apt/keyrings`.<br>• Enables and starts systemd service.<br>• Adds non-root user to `docker` group. |
-| **`app`** | Production application deployment via Docker Compose. | • Secure directory `/opt/smartlearn` (`0750`).<br>• Secrets isolated in `.env` (`0600`).<br>• Pulls images from GitHub Container Registry (`ghcr.io/dankagame/...`).<br>• Automated healthcheck probes on `/health` and `/nginx-health`. |
-
----
-
-## Shared Infrastructure Agreement
-
-| Parameter | Agreed Value | Notes |
-| :--- | :--- | :--- |
-| **Cloud Provider & Region** | AWS `us-east-1` (N. Virginia) | Provisioned by Terraform (`terraform/`), `t3.micro`. |
-| **OS Image** | Ubuntu 24.04 LTS (x86_64) | Looked up by Terraform from Canonical's official AWS account. |
-| **SSH Key Pair** | `~/.ssh/smartlearn-key` / `smartlearn-key.pub` | Generated and shared across deployment components. |
-| **Frontend Port** | `80` (HTTP) | Exposed by UFW and mapped to container port 8080. |
-| **Backend Port** | `8000` (localhost only) | Bound to `127.0.0.1` on the server. The browser reaches the API through Nginx on port 80. |
-| **Database Port** | `5432` (Internal only) | Isolated inside Docker bridge network (`smartlearn-network`). Not exposed on host. |
-| **Container Images** | `ghcr.io/dankagame/smartlearn-backend:sha-<commit>`<br>`ghcr.io/dankagame/smartlearn-frontend:sha-<commit>` | Published by the CI pipeline, tagged with the commit SHA. Set the tag with `image_tag` in `inventory/group_vars/all/vars.yml`. |
-
----
-
-## Directory Structure
-
-```text
+```
 ansible/
-├── ansible.cfg                    # Default Ansible settings (roles_path, host_key_checking)
+├── ansible.cfg                     defaults, SSH multiplexing, privilege escalation
+├── playbook.yml                    play 1: bastion, play 2: app server
+├── requirements.yml                community.general, ansible.posix
 ├── inventory/
-│   ├── hosts.ini                  # Inventory template (committed, no real IP)
-│   ├── hosts.local.ini            # Your copy with the real server IP (git-ignored)
+│   ├── hosts.ini                   bastion public IP, app private IP, ProxyCommand
 │   └── group_vars/
-│       └── all/
-│           ├── vars.yml           # Global variables (ports, images, security settings)
-│           └── vault.yml          # Encrypted secrets (Ansible Vault)
-├── requirements.yml               # Required Ansible collections
-├── playbook.yml                   # Master playbook orchestrating roles
-├── roles/
-│   ├── common/
-│   │   ├── handlers/main.yml      # Service restart handlers (sshd, ufw)
-│   │   └── tasks/
-│   │       ├── main.yml           # Entry point
-│   │       ├── system.yml         # Base packages
-│   │       ├── ssh.yml            # SSH hardening
-│   │       └── firewall.yml       # UFW firewall
-│   ├── docker/
-│   │   ├── handlers/main.yml      # Docker service handlers
-│   │   └── tasks/main.yml         # Docker CE & Compose installation
-│   └── app/
-│       ├── defaults/main.yml      # Default deployment variables
-│       ├── handlers/main.yml      # Compose restart handlers
-│       ├── tasks/main.yml         # Deployment tasks and health verification
-│       └── templates/
-│           ├── docker-compose.yml.j2 # Jinja2 compose template
-│           └── env.j2             # Jinja2 environment file template
-└── README.md                      # Documentation (this file)
+│       ├── all/vars.yml            images, region, SSM parameter, app URL, SSH settings
+│       ├── all/vault.yml           encrypted: vault_secret_key (JWT signing key)
+│       └── bastion/vars.yml        no app ports, SSH from anywhere (the AWS SG restricts it)
+└── roles/
+    ├── common/                     system.yml, ssh.yml, firewall.yml
+    ├── docker/
+    └── app/                        tasks, handlers, templates/{docker-compose.yml.j2, env.j2}
 ```
 
 ---
 
 ## Prerequisites
 
-1. **Ansible installed on controller machine:**
-   ```bash
-   pip install ansible
-   # or (Ubuntu/Debian)
-   sudo apt update && sudo apt install -y ansible
-   ```
-2. **Install required Ansible collections:**
-   ```bash
-   ansible-galaxy collection install -r requirements.yml
-   ```
-3. **SSH Key Pair created:**
-   ```bash
-   ssh-keygen -t ed25519 -f ~/.ssh/smartlearn-key -C "smartlearn-deploy"
-   ```
+| Requirement | How |
+|-------------|-----|
+| Ansible core 2.15+ | `pipx install ansible-core` or `brew install ansible` |
+| Collections | `ansible-galaxy collection install -r requirements.yml` |
+| SSH private key | `~/.ssh/smartlearn-key` (the key Terraform uploaded) |
+| Vault password | `ansible/smartlearn.vault.key`, shared privately between team members, never committed |
+| Your IP in Terraform | Your `/32` in `admin_cidrs`, otherwise the bastion refuses the connection |
+| Images in ECR | `smartlearn-backend:<sha>` and `smartlearn-frontend:<sha>` pushed by the CD pipeline |
 
 ---
 
-## How to Test in Parallel (Local VM)
+## Running the playbook
 
-You can test immediately using any Ubuntu VM without waiting for cloud provisioning:
-
-1. **Using Multipass (Quickest Local VM):**
-   ```bash
-   multipass launch --name smartlearn-test --cpus 2 --memory 2G 22.04
-   multipass info smartlearn-test # Note the IPv4
-   # Copy your public key to the VM:
-   multipass exec smartlearn-test -- bash -c "echo '$(cat ~/.ssh/smartlearn-key.pub)' >> ~/.ssh/authorized_keys"
-   ```
-2. **Update `inventory/hosts.ini`:**
-   ```ini
-   [webservers]
-   smartlearn-server ansible_host=<VM_IP> ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/smartlearn-key
-   ```
-3. Once the production EC2 public IP is provisioned via Terraform, simply swap `<VM_IP>` in `inventory/hosts.ini`!
-
----
-
-## Secrets (Ansible Vault)
-
-The database password and JWT secret key are stored encrypted in `inventory/group_vars/all/vault.yml`. `vars.yml` only refers to them (`{{ vault_postgres_password }}`, `{{ vault_secret_key }}`), so no secret is committed in plain text.
-
-- The vault password lives in `smartlearn.vault.key` in this folder. It is git-ignored; share it with teammates privately, never in Git or chat history.
-- View or edit the secrets:
-  ```bash
-  ansible-vault view inventory/group_vars/all/vault.yml --vault-password-file smartlearn.vault.key
-  ansible-vault edit inventory/group_vars/all/vault.yml --vault-password-file smartlearn.vault.key
-  ```
-- Without the key file, use `--ask-vault-pass` instead of `--vault-password-file smartlearn.vault.key`.
-
----
-
-## Running the Playbook
-
-Create your own inventory from the template and put the server IP from `terraform output instance_public_ip` in it:
+From the `ansible/` folder:
 
 ```bash
-cp inventory/hosts.ini inventory/hosts.local.ini
+ansible-galaxy collection install -r requirements.yml
+
+ansible-playbook playbook.yml \
+  --vault-password-file smartlearn.vault.key \
+  -e image_tag=<git-commit-sha>
 ```
 
-`hosts.local.ini` is git-ignored. SSH only works from the IP allowed in Terraform's `my_ip`, so run Ansible from that machine.
+Useful variations:
 
-### 1. Test connectivity
 ```bash
-ansible -i inventory/hosts.local.ini webservers -m ping
+ansible all -m ping --vault-password-file smartlearn.vault.key
+
+ansible-playbook playbook.yml --vault-password-file smartlearn.vault.key -e image_tag=<sha> --check --diff
+
+ansible-playbook playbook.yml --vault-password-file smartlearn.vault.key --tags firewall
+
+ansible-playbook playbook.yml --vault-password-file smartlearn.vault.key -e image_tag=<sha> --tags deploy --limit webservers
 ```
 
-### 2. Check syntax
-```bash
-ansible-playbook -i inventory/hosts.local.ini --vault-password-file smartlearn.vault.key playbook.yml --syntax-check
-```
+### Rollback
 
-### 3. Dry-run (Check mode)
-```bash
-ansible-playbook -i inventory/hosts.local.ini --vault-password-file smartlearn.vault.key playbook.yml --check
-```
+Every image is kept in ECR under its commit SHA, and tags are immutable. To roll back, run the playbook with the previous SHA:
 
-### 4. Execute deployment
 ```bash
-ansible-playbook -i inventory/hosts.local.ini --vault-password-file smartlearn.vault.key playbook.yml
+aws ecr describe-images --repository-name smartlearn-backend \
+  --query 'reverse(sort_by(imageDetails,&imagePushedAt))[:5].imageTags[0]' --output text
+
+ansible-playbook playbook.yml --vault-password-file smartlearn.vault.key -e image_tag=<previous-sha>
 ```
 
 ---
 
-## Idempotency & Verification
+## Idempotency
 
-- **Idempotency Guarantee:** Running the playbook a second time yields `changed=0` (or only dynamic transient status checks). No duplicate lines in `sshd_config`, no redundant container restarts, and no firewall rule corruption.
-- **Verification Commands:**
-  ```bash
-  # Check SSH hardening
-  ssh -i ~/.ssh/smartlearn-key ubuntu@<VM_IP> "sudo sshd -T | grep -E 'permitrootlogin|passwordauthentication|maxauthtries'"
+Running the playbook twice with the same `image_tag` changes nothing:
 
-  # Check firewall status
-  ssh -i ~/.ssh/smartlearn-key ubuntu@<VM_IP> "sudo ufw status verbose"
+```
+smartlearn-app      : ok=51   changed=0   unreachable=0   failed=0   skipped=1
+smartlearn-bastion  : ok=18   changed=0   unreachable=0   failed=0   skipped=2
+```
 
-  # Check Docker containers
-  ssh -i ~/.ssh/smartlearn-key ubuntu@<VM_IP> "docker ps"
+Containers are recreated only when the image tag, `.env` or the compose file changes.
 
-  # Verify application endpoints
-  curl -I http://<VM_IP>/
-  curl http://<VM_IP>/health
-  ```
+---
+
+## Verifying a deployment
+
+```bash
+curl http://smartlearn-alb-521972676.us-east-1.elb.amazonaws.com/health
+```
+
+```json
+{"status":"ok","database":"connected"}
+```
+
+On the app server:
+
+```bash
+ssh -i ~/.ssh/smartlearn-key -J ubuntu@3.94.215.33 ubuntu@10.0.11.80
+cd /opt/smartlearn
+sudo docker compose ps
+sudo docker compose logs --tail 50 backend
+```
+
+From your laptop:
+
+```bash
+aws logs tail /smartlearn/app --follow
+```
+
+---
+
+## Security
+
+| Control | Where |
+|---------|-------|
+| No secrets in Git | `DATABASE_URL` comes from SSM at deploy time; the JWT key is in `vault.yml` (AES-256); `.env` on the server is `0600` |
+| No registry password | ECR credential helper with the instance IAM role |
+| No public SSH to the app server | AWS SG allows 22 only from the bastion SG; UFW allows 22 only from `10.0.0.0/16` |
+| Bastion | AWS SG allows 22 only from `admin_cidrs`; key-only login; UFW opens only 22 |
+| SSH hardening | Root login and passwords disabled, `MaxAuthTries 4`, every `sshd_config` edit validated with `sshd -t` before reload |
+| Failing deploys stay failed | Health and database assertions stop the run with a non-zero exit code, which fails the CD job |
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `ssh: connect to host <bastion> port 22: Operation timed out` | Your public IP is not in `admin_cidrs` | Update `terraform/terraform.tfvars`, run `terraform apply` |
+| `Connection refused` from the bastion | sshd or UFW on the bastion is blocking you | Connect with AWS Session Manager (`aws ssm start-session --target <bastion-instance-id>`) and check `sudo ufw status` |
+| `Connection closed by UNKNOWN port 65535` | The ProxyCommand hop to the bastion failed | Test `ssh ubuntu@<bastion>` on its own first |
+| `Pass the image tag to deploy` | `-e image_tag=` missing | Add the commit SHA |
+| `manifest unknown` on pull | That SHA was never pushed to ECR | Check with `aws ecr describe-images --repository-name smartlearn-backend` |
+| `Backend is up but cannot reach the database` | RDS stopped, wrong `DATABASE_URL`, or security group change | `aws rds describe-db-instances --db-instance-identifier smartlearn-db`, check the DB SG allows the app SG |
+
+### Lesson learned: rate limiting versus automation
+
+The Formative 3 version used `ufw limit` on SSH. Behind a bastion, every Ansible connection arrives from the same IP, so the limit (6 new connections in 30 seconds) rejected Ansible's own connections and the run hung. SSH is now restricted by source instead (security groups plus UFW `from 10.0.0.0/16` on the app server), which is stricter and does not break deployments.

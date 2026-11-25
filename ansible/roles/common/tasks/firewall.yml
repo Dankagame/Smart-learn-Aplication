@@ -1,8 +1,4 @@
 ---
-# ==============================================================================
-# Firewall Configuration (UFW)
-# ==============================================================================
-
 - name: Set UFW default incoming policy to DENY
   community.general.ufw:
     direction: incoming
@@ -13,12 +9,20 @@
     direction: outgoing
     default: allow
 
-- name: Allow SSH with rate limiting
+- name: Allow SSH only from the permitted source
+  community.general.ufw:
+    rule: allow
+    port: "{{ ssh_port | string }}"
+    proto: tcp
+    from_ip: "{{ ssh_allowed_from }}"
+    comment: "SSH from {{ ssh_allowed_from }}"
+
+- name: Remove the old rate-limited SSH rule that blocked Ansible bursts
   community.general.ufw:
     rule: limit
     port: "{{ ssh_port | string }}"
     proto: tcp
-    comment: "Rate-limited SSH access"
+    delete: true
 
 - name: Allow application incoming ports
   community.general.ufw:
@@ -28,6 +32,12 @@
     comment: "SmartLearn web/api service port {{ item }}"
   loop: "{{ firewall_allowed_tcp_ports }}"
 
+- name: Read current UFW status
+  ansible.builtin.command: ufw status
+  register: ufw_status
+  changed_when: false
+
 - name: Enable UFW firewall service
   community.general.ufw:
     state: enabled
+  when: "'Status: active' not in ufw_status.stdout"

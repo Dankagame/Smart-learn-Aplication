@@ -1,174 +1,228 @@
 # SmartLearn Infrastructure (Terraform)
 
-This folder builds the AWS infrastructure that hosts SmartLearn: a small, secure network and one Ubuntu server. Ansible (in `ansible/`) then installs Docker on the server and deploys the app.
+This folder builds the full AWS production environment for SmartLearn: a private network across two availability zones, a load balancer, a bastion host, a private app server, a managed Postgres database, a private container registry, and the IAM role the CD pipeline uses.
 
-Everything is created with code, so the whole environment can be built, rebuilt, or deleted with one command.
+Ansible (in [`../ansible`](../ansible/README.md)) then configures the servers and deploys the app.
 
-## What it builds
+**Live app:** http://smartlearn-alb-521972676.us-east-1.elb.amazonaws.com
 
-```
-                     Internet
-                        │
-              ┌─────────▼─────────┐
-              │ Internet gateway  │
-              └─────────┬─────────┘
-  VPC 10.0.0.0/16       │  route 0.0.0.0/0 → gateway
-  ┌─────────────────────┼──────────────────────────┐
-  │  Public subnet 10.0.1.0/24 (us-east-1a)        │
-  │   ┌────────────────────────────────────────┐   │
-  │   │ Security group                         │   │
-  │   │  in:  22 (SSH)  from my_ip only        │   │
-  │   │  in:  80 (HTTP) from anywhere          │   │
-  │   │  out: all                              │   │
-  │   │   ┌──────────────────────────────┐     │   │
-  │   │   │ EC2 t3.micro, Ubuntu 24.04   │     │   │
-  │   │   │ encrypted 20 GB gp3 disk     │     │   │
-  │   │   │ IMDSv2 required              │     │   │
-  │   │   └──────────────────────────────┘     │   │
-  │   └────────────────────────────────────────┘   │
-  └────────────────────────────────────────────────┘
-```
+---
 
-| Resource | Purpose |
-|----------|---------|
-| VPC (`10.0.0.0/16`) | Our own private network in AWS |
-| Public subnet (`10.0.1.0/24`) | Where the server lives. Servers here get a public IP |
-| Internet gateway | Connects the VPC to the internet |
-| Route table + association | Sends internet traffic (`0.0.0.0/0`) through the gateway |
-| Security group | Firewall: SSH only from your IP, HTTP from anyone, all outbound |
-| Key pair | Uploads your SSH **public** key so you can log in |
-| EC2 instance | Ubuntu 24.04 `t3.micro` server that runs SmartLearn |
+## Architecture
 
-## Folder structure
+```mermaid
+flowchart TB
+    user([Users])
+    admin([Admins])
+    gha([GitHub Actions CD])
 
-```
-terraform/
-├── main.tf                    Calls the two modules and connects them
-├── variables.tf               Inputs for the whole setup
-├── outputs.tf                 Values printed after apply (server IP, SSH command)
-├── providers.tf               Terraform and AWS provider versions, AWS region
-├── terraform.tfvars.example   Template for your own terraform.tfvars
-└── modules/
-    ├── network/               VPC, subnet, internet gateway, route table, security group
-    └── compute/               Ubuntu AMI lookup, key pair, EC2 instance
+    subgraph vpc["VPC 10.0.0.0/16 (us-east-1a, us-east-1b)"]
+        subgraph public["Public subnets 10.0.1.0/24, 10.0.2.0/24"]
+            alb["Application Load Balancer<br/>HTTP 80, health check /health"]
+            bastion["Bastion host<br/>t3.micro, Elastic IP"]
+            nat["NAT gateway"]
+        end
+        subgraph private["Private subnets 10.0.11.0/24, 10.0.12.0/24"]
+            app["App server<br/>t3.micro, no public IP<br/>Docker: nginx + FastAPI"]
+            rds[("RDS Postgres 16<br/>db.t3.micro, encrypted")]
+        end
+    end
+
+    ecr[("ECR<br/>smartlearn-backend<br/>smartlearn-frontend")]
+    ssm[("SSM Parameter Store<br/>DATABASE_URL (KMS)")]
+    cw[("CloudWatch Logs<br/>app + VPC flow logs")]
+
+    user -- "HTTP 80" --> alb
+    alb -- "80" --> app
+    admin -- "SSH 22 from admin IPs" --> bastion
+    gha -- "SSH 22, runner IP opened per deploy" --> bastion
+    bastion -- "SSH 22" --> app
+    app -- "5432 TLS" --> rds
+    app -- "443 via NAT" --> nat
+    nat --> ecr
+    app -. "IAM role" .-> ssm
+    app -. "awslogs" .-> cw
+    gha -- "OIDC role: push images" --> ecr
 ```
 
-The **network** module outputs `subnet_id` and `security_group_id`. The root `main.tf` passes them into the **compute** module, so the server is placed in the right subnet behind the right firewall.
+### Security group chain
+
+| Security group | Inbound | Outbound |
+|----------------|---------|----------|
+| `smartlearn-alb-sg` | 80 from `0.0.0.0/0` | 80 to the app SG only |
+| `smartlearn-bastion-sg` | 22 from `admin_cidrs` only | 22 to the app SG, 80/443 for updates |
+| `smartlearn-app-sg` | 80 from the ALB SG, 22 from the bastion SG | 443/80 through NAT, 5432 to the DB SG |
+| `smartlearn-db-sg` | 5432 from the app SG | none |
+
+Rules reference other security groups instead of IP ranges, so they keep working when instances are replaced.
+
+---
+
+## Modules
+
+| Module | What it creates | Key decisions |
+|--------|-----------------|---------------|
+| [`network`](modules/network) | VPC, 2 public + 2 private subnets, internet gateway, NAT gateway, route tables, VPC flow logs | AZs pinned by name; no automatic public IPs; flow logs record rejected traffic |
+| [`security`](modules/security) | The four security groups above, one resource per rule | `admin_cidrs` validation rejects `0.0.0.0/0` |
+| [`encryption`](modules/encryption) | Customer managed KMS key `alias/smartlearn` | Rotation on; encrypts log groups and SSM secrets |
+| [`registry`](modules/registry) | ECR repositories for backend and frontend | Immutable tags, scan on push, KMS, keep newest 20 images |
+| [`database`](modules/database) | RDS Postgres 16, subnet group, parameter group, monitoring role, SSM parameters | Private, encrypted, TLS forced, 7-day backups, password generated by Terraform and stored only in SSM |
+| [`bastion`](modules/bastion) | Bastion EC2, Elastic IP, Session Manager role | IMDSv2, encrypted disk, static IP |
+| [`compute`](modules/compute) | App EC2 in a private subnet, IAM role and instance profile, CloudWatch log group | Role can only pull from ECR, write its own logs and read the two database parameters |
+| [`loadbalancer`](modules/loadbalancer) | Internet-facing ALB, target group, HTTP listener | Health check `/health` every 15 s; invalid headers dropped |
+| [`cdn`](modules/cdn) | CloudFront distribution in front of the ALB (`enable_cdn`) | HTTPS with the default certificate, redirect HTTP to HTTPS, no caching, security headers |
+| [`cicd`](modules/cicd) | GitHub OIDC provider and the `smartlearn-github-deploy` role | Only the `main` branch or `production` environment of this repo can assume it |
+
+Root files:
+
+| File | Purpose |
+|------|---------|
+| `providers.tf` | Terraform and provider versions; default tags `Project`, `Environment`, `ManagedBy` on every resource |
+| `main.tf` | Ubuntu 24.04 AMI lookup, shared SSH key pair, and the module wiring |
+| `variables.tf` | Inputs with validation |
+| `outputs.tf` | Everything Ansible, the CD pipeline and operators need |
+| `.checkov.yaml` | Checkov settings and the justified skip list (see [SECURITY.md §5](../SECURITY.md#5-infrastructure-as-code-findings-terraform--checkov)) |
+| `terraform.tfvars.example` | Template for your own `terraform.tfvars` |
+
+---
 
 ## Prerequisites
 
-| Tool | Version | Check with |
-|------|---------|------------|
-| [Terraform](https://developer.hashicorp.com/terraform/install) | 1.6 or newer | `terraform version` |
-| [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) | v2 | `aws --version` |
-| An AWS account that allows EC2 | | `aws ec2 describe-vpcs --region us-east-1` |
+| Tool | Version |
+|------|---------|
+| Terraform | 1.6 or newer |
+| AWS CLI | v2, logged in with an IAM user that can create VPC, EC2, RDS, ECR, IAM, KMS, SSM and CloudWatch resources |
+| SSH key pair | `~/.ssh/smartlearn-key` and `~/.ssh/smartlearn-key.pub` |
+| Checkov (optional) | 3.x, to run the security scan locally |
 
-### 1. AWS credentials
-
-Create an IAM user with programmatic access, then save its access key as a named profile:
+Create the SSH key once:
 
 ```bash
-aws configure --profile smartlearn
-export AWS_PROFILE=smartlearn
-aws sts get-caller-identity
+ssh-keygen -t ed25519 -f ~/.ssh/smartlearn-key -C smartlearn
 ```
 
-Run `export AWS_PROFILE=smartlearn` in every new terminal before using Terraform. Never put access keys in `.tf` files or commit them to Git.
+---
 
-### 2. SSH key
-
-Create a key pair once. The private key stays on your computer; only the public key is uploaded:
+## Provision
 
 ```bash
-ssh-keygen -t ed25519 -f ~/.ssh/smartlearn-key -C "smartlearn"
-```
-
-If your key has a different path, set `public_key_path` in `terraform.tfvars`.
-
-## Variables
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `my_ip` | Your public IP in CIDR form, allowed to SSH in, e.g. `102.22.141.238/32` | none | **Yes** |
-| `region` | AWS region for all resources | `us-east-1` | No |
-| `project_name` | Prefix used in resource names and tags | `smartlearn` | No |
-| `instance_type` | EC2 instance size | `t3.micro` | No |
-| `public_key_path` | Path to your SSH public key | `~/.ssh/smartlearn-key.pub` | No |
-
-### Setting your variables
-
-Copy the template and put your own IP in it:
-
-```bash
+cd terraform
 cp terraform.tfvars.example terraform.tfvars
-curl https://checkip.amazonaws.com
 ```
 
-Then edit `terraform.tfvars`, adding `/32` to the end of your IP:
+Edit `terraform.tfvars` and put each admin's public IP:
 
 ```hcl
-my_ip = "102.22.141.238/32"
+admin_cidrs = ["<your-ip>/32", "<teammate-ip>/32"]
 ```
 
-Terraform reads `terraform.tfvars` automatically. Git ignores it, so your IP is never committed. If your network changes, your IP changes too: update `my_ip` and run `terraform apply` again, or SSH will stop working.
-
-## Commands
-
-Run all commands from this `terraform` folder.
-
-| Step | Command | What it does |
-|------|---------|--------------|
-| 1 | `terraform init` | Downloads the AWS provider and registers the modules. Run once, and again after adding modules |
-| 2 | `terraform fmt -recursive` | Formats all `.tf` files, including those in `modules/` |
-| 3 | `terraform validate` | Checks the code for mistakes |
-| 4 | `terraform plan` | Shows what will be created, changed, or destroyed, without doing it |
-| 5 | `terraform apply` | Creates or updates the resources. Type `yes` to confirm |
-| 6 | `terraform output` | Prints the outputs again (server IP, SSH command) |
-| 7 | `terraform destroy` | Deletes **everything** this code created. Type `yes` to confirm |
-
-A first deployment takes about 1 to 2 minutes and ends with:
-
-```
-Apply complete! Resources: 8 added, 0 changed, 0 destroyed.
-```
-
-## Outputs
-
-| Output | Example | Used for |
-|--------|---------|----------|
-| `instance_public_ip` | `44.200.2.73` | The Ansible inventory |
-| `instance_public_dns` | `ec2-44-200-2-73.compute-1.amazonaws.com` | A hostname instead of the IP |
-| `ssh_command` | `ssh -i ~/.ssh/smartlearn-key ubuntu@44.200.2.73` | Logging in to the server |
-| `app_url` | `http://44.200.2.73` | Opening SmartLearn after Ansible deploys it |
-
-Test the server about 30 seconds after `apply`:
+Find your IP with `curl https://checkip.amazonaws.com`.
 
 ```bash
-ssh -i ~/.ssh/smartlearn-key ubuntu@$(terraform output -raw instance_public_ip)
+terraform init
+terraform plan -out=tfplan
+terraform apply tfplan
 ```
 
-## Security
+The first apply takes 10 to 15 minutes, most of it waiting for RDS. When it finishes:
 
-- SSH (port 22) is open **only** to the IP in `my_ip`, never to the whole internet.
-- Only port 80 is public. The backend (8000) and database (5432) are not exposed; Nginx reaches the backend inside the server.
-- The server's disk is encrypted, and IMDSv2 is required, which blocks a common credential-theft attack.
-- The Ubuntu image is looked up from Canonical's official AWS account (`099720109477`) only.
-- Secrets and local files are kept out of Git: `terraform.tfvars`, `*.tfstate`, and `.terraform/` are in `.gitignore`.
-- Checkov scans this code on every pull request. Findings and decisions are recorded in [`SECURITY.md`](../SECURITY.md).
+```bash
+terraform output
+```
+
+| Output | Used for |
+|--------|----------|
+| `app_url`, `health_url` | The live site and its health check |
+| `bastion_public_ip`, `app_private_ip` | Ansible inventory |
+| `ssh_bastion`, `ssh_app` | Ready-to-run SSH commands |
+| `ecr_registry`, `ecr_repository_urls` | Image pushes and Ansible variables |
+| `github_actions_role_arn` | `AWS_ROLE_ARN` secret in GitHub |
+| `bastion_security_group_id` | CD opens it briefly for the runner IP |
+| `db_endpoint`, `db_url_parameter` | Database host and the SSM parameter holding `DATABASE_URL` |
+| `app_log_group` | CloudWatch log group for the containers |
+| `target_group_arn` | Checking target health |
+
+Copy `bastion_public_ip` and `app_private_ip` into [`../ansible/inventory/hosts.ini`](../ansible/inventory/hosts.ini), then follow the [Ansible README](../ansible/README.md).
+
+---
+
+## Day-to-day operations
+
+### Check health
+
+```bash
+curl "$(terraform output -raw health_url)"
+
+aws elbv2 describe-target-health \
+  --target-group-arn "$(terraform output -raw target_group_arn)" \
+  --query 'TargetHealthDescriptions[].TargetHealth.State' --output text
+```
+
+`{"status":"ok","database":"connected"}` and `healthy` mean users can reach the app and the app can reach the database.
+
+### Read logs
+
+```bash
+aws logs tail /smartlearn/app --follow
+aws logs tail /smartlearn/vpc-flow-logs --since 1h
+```
+
+### SSH to the servers
+
+```bash
+eval "$(terraform output -raw ssh_bastion)"
+eval "$(terraform output -raw ssh_app)"
+```
+
+### Your IP changed
+
+SSH to the bastion times out when your public IP no longer matches `admin_cidrs`. Update `terraform.tfvars` and run `terraform apply`. Only the bastion security group rule changes.
+
+### Security scan
+
+```bash
+checkov -d terraform --config-file terraform/.checkov.yaml
+```
+
+The current result is 236 passed and 0 failed. Every skipped check is justified in [SECURITY.md §5.5](../SECURITY.md#55-findings-accepted-with-justification).
+
+---
 
 ## Cost
 
-The VPC, subnet, gateway, route table, security group, and key pair are free. The `t3.micro` server, its 20 GB disk, and its public IP cost roughly **$0.02 per hour** in total, which the AWS Free Tier or account credits usually cover.
+Approximate running cost in `us-east-1` is about **$3 per day**. The NAT gateway, the load balancer, RDS, two `t3.micro` instances, public IPv4 addresses and the KMS key make up most of it.
 
-**Run `terraform destroy` when you are finished**, so nothing keeps running. You can rebuild everything later with `terraform apply`.
+## Tear down
 
-## Troubleshooting
+```bash
+terraform destroy
+```
 
-| Problem | Fix |
-|---------|-----|
-| `var.my_ip: Enter a value:` | `terraform.tfvars` is missing. Create it as shown in [Setting your variables](#setting-your-variables) |
-| `No configuration files` | You are in the wrong folder. `cd` into `terraform/` |
-| `UnauthorizedOperation` | Wrong AWS account or missing permissions. Run `export AWS_PROFILE=smartlearn`, then `aws sts get-caller-identity` |
-| `Invalid value for "path" parameter: no file exists` | The SSH public key is missing. Create it, or fix `public_key_path` |
-| SSH times out | Your IP changed. Update `my_ip` in `terraform.tfvars` and run `terraform apply` |
-| `Reference to undeclared input variable` | A variable is used but not declared in `variables.tf` |
+Deletion protection on RDS and the ALB is off (`db_deletion_protection = false`) so the environment can be removed after grading. ECR repositories are deleted with their images (`force_delete = true`). The KMS key is scheduled for deletion after 7 days.
+
+## Production switches
+
+These are off to keep costs down for the course and are one variable away:
+
+| Variable | Effect |
+|----------|--------|
+| `db_multi_az = true` | Standby database in the second AZ |
+| `db_deletion_protection = true` | `terraform destroy` cannot delete the database |
+| `app_instance_type` | Larger app server |
+| `availability_zones` | Add a third AZ |
+
+### HTTPS with CloudFront
+
+The [`cdn`](modules/cdn) module puts CloudFront in front of the ALB. It gives an `https://<id>.cloudfront.net` address with a valid certificate and no domain to buy. Viewers are redirected from HTTP to HTTPS, caching is off so every deploy is visible at once, and the managed `SecurityHeadersPolicy` adds HSTS.
+
+It is off by default because new AWS accounts must be verified by AWS Support before they can create CloudFront distributions. Once the account is verified:
+
+```bash
+echo 'enable_cdn = true' >> terraform.tfvars
+terraform apply
+terraform output app_url
+```
+
+Then set `app_url` in [`../ansible/inventory/group_vars/all/vars.yml`](../ansible/inventory/group_vars/all/vars.yml) to the new HTTPS URL and run the playbook, so the backend allows it as a CORS origin.
+
+For a custom domain, request an ACM certificate in `us-east-1` and attach it to the distribution.

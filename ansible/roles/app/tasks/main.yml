@@ -1,7 +1,64 @@
 ---
-# ==============================================================================
-# Application Deployment
-# ==============================================================================
+- name: Require an image tag for this deployment
+  ansible.builtin.assert:
+    that:
+      - image_tag is defined
+      - image_tag | length > 0
+    fail_msg: "Pass the image tag to deploy, for example -e image_tag=<git sha>."
+    quiet: true
+
+- name: Install the Amazon ECR credential helper
+  ansible.builtin.apt:
+    name: amazon-ecr-credential-helper
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install the AWS CLI
+  community.general.snap:
+    name: aws-cli
+    classic: true
+    state: present
+
+- name: Create Docker client config directory for root
+  ansible.builtin.file:
+    path: /root/.docker
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Let Docker log in to ECR with the instance IAM role
+  ansible.builtin.copy:
+    dest: /root/.docker/config.json
+    content: "{{ {'credHelpers': {ecr_registry: 'ecr-login'}} | to_nice_json }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Read DATABASE_URL from SSM Parameter Store
+  ansible.builtin.command:
+    argv:
+      - /snap/bin/aws
+      - ssm
+      - get-parameter
+      - --region
+      - "{{ aws_region }}"
+      - --name
+      - "{{ database_url_parameter }}"
+      - --with-decryption
+      - --query
+      - Parameter.Value
+      - --output
+      - text
+  register: database_url_result
+  changed_when: false
+  no_log: true
+
+- name: Keep DATABASE_URL for the environment file
+  ansible.builtin.set_fact:
+    database_url: "{{ database_url_result.stdout | trim }}"
+  no_log: true
 
 - name: Create application directory
   ansible.builtin.file:
@@ -17,7 +74,8 @@
     dest: "{{ app_dir }}/.env"
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
-    mode: "0600" # Restrict access to secrets
+    mode: "0600"
+  no_log: true
   notify: Restart smartlearn containers
 
 - name: Template production docker-compose.yml
@@ -29,10 +87,12 @@
     mode: "0640"
   notify: Restart smartlearn containers
 
-- name: Pull latest container images
+- name: Pull release images from ECR
   ansible.builtin.command:
     cmd: docker compose pull
     chdir: "{{ app_dir }}"
+  environment:
+    DOCKER_CONFIG: /root/.docker
   register: compose_pull_result
   changed_when: false
 
@@ -40,8 +100,13 @@
   ansible.builtin.command:
     cmd: docker compose up -d --remove-orphans
     chdir: "{{ app_dir }}"
+  environment:
+    DOCKER_CONFIG: /root/.docker
   register: compose_up_result
   changed_when: "'Started' in (compose_up_result.stdout + compose_up_result.stderr) or 'Recreated' in (compose_up_result.stdout + compose_up_result.stderr) or 'Created' in (compose_up_result.stdout + compose_up_result.stderr)"
+
+- name: Apply pending container restarts before health checks
+  ansible.builtin.meta: flush_handlers
 
 - name: Wait for backend API to be healthy
   ansible.builtin.uri:
@@ -53,6 +118,13 @@
   retries: "{{ healthcheck_retries }}"
   delay: "{{ healthcheck_delay }}"
 
+- name: Require the backend to reach the RDS database
+  ansible.builtin.assert:
+    that:
+      - backend_health.json.database == "connected"
+    fail_msg: "Backend is up but cannot reach the database: {{ backend_health.json }}"
+    success_msg: "Backend is connected to RDS"
+
 - name: Wait for frontend to be healthy
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ frontend_port }}/nginx-health"
@@ -63,6 +135,12 @@
   retries: "{{ healthcheck_retries }}"
   delay: "{{ healthcheck_delay }}"
 
+- name: Remove images no longer used by any container
+  ansible.builtin.command:
+    cmd: docker image prune -af --filter "until=168h"
+  register: prune_result
+  changed_when: "'Total reclaimed space: 0B' not in prune_result.stdout"
+
 - name: Confirm application deployment
   ansible.builtin.debug:
-    msg: "SmartLearn successfully deployed and healthy! Backend: {{ backend_health.json.status }}, DB: {{ backend_health.json.database }}"
+    msg: "SmartLearn {{ image_tag }} deployed and healthy. Backend: {{ backend_health.json.status }}, DB: {{ backend_health.json.database }}"
