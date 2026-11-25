@@ -33,7 +33,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION || 'eu-west-1' }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
           audience: sts.amazonaws.com
 
       - name: Log in to Amazon ECR
@@ -49,9 +49,7 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: |
-            ${{ steps.login-ecr.outputs.registry }}/smartlearn-backend:${{ github.sha }}
-            ${{ steps.login-ecr.outputs.registry }}/smartlearn-backend:latest
+          tags: ${{ steps.login-ecr.outputs.registry }}/smartlearn-backend:${{ github.sha }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
@@ -61,25 +59,59 @@ jobs:
           context: frontend
           file: frontend/Dockerfile
           push: true
-          tags: |
-            ${{ steps.login-ecr.outputs.registry }}/smartlearn-frontend:${{ github.sha }}
-            ${{ steps.login-ecr.outputs.registry }}/smartlearn-frontend:latest
+          tags: ${{ steps.login-ecr.outputs.registry }}/smartlearn-frontend:${{ github.sha }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
-      - name: Set up SSH Key and Ansible Vault Password
+      - name: Open Bastion SSH for GitHub Actions runner
+        id: open-bastion
+        env:
+          BASTION_SG_ID: ${{ secrets.BASTION_SECURITY_GROUP_ID }}
+        run: |
+          if [ -z "$BASTION_SG_ID" ]; then
+            echo "BASTION_SECURITY_GROUP_ID secret not set; skipping dynamic SG rule."
+            exit 0
+          fi
+          RUNNER_IP=$(curl -fsS https://checkip.amazonaws.com | tr -d '[:space:]')
+          echo "runner_ip=${RUNNER_IP}" >> "$GITHUB_OUTPUT"
+          echo "Temporarily authorizing SSH (22/tcp) from GitHub runner ${RUNNER_IP}/32 on ${BASTION_SG_ID}..."
+          aws ec2 authorize-security-group-ingress \
+            --group-id "$BASTION_SG_ID" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "${RUNNER_IP}/32" || true
+
+      - name: Set up SSH Key, Vault Password, and Ansible Inventory
+        env:
+          BASTION_HOST: ${{ secrets.BASTION_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
+          APP_HOST: ${{ secrets.APP_SERVER_PRIVATE_IP }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/smartlearn-key
+          chmod 600 ~/.ssh/smartlearn-key
 
           mkdir -p ~/.ansible
-          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.ansible/vault_pass
+          printf '%s\n' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.ansible/vault_pass
           chmod 600 ~/.ansible/vault_pass
 
-          # Known hosts setup for bastion and target
-          ssh-keyscan -H "${{ secrets.BASTION_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
-          ssh-keyscan -H "${{ secrets.APP_SERVER_PRIVATE_IP }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          if [ -n "$BASTION_HOST" ] && [ -n "$APP_HOST" ]; then
+            cat > ansible/inventory/hosts.ini <<EOF
+          [bastion]
+          smartlearn-bastion ansible_host=${BASTION_HOST}
+
+          [webservers]
+          smartlearn-app ansible_host=${APP_HOST}
+
+          [all:vars]
+          ansible_user=${BASTION_USER}
+          ansible_ssh_private_key_file=~/.ssh/smartlearn-key
+          ansible_python_interpreter=/usr/bin/python3
+
+          [webservers:vars]
+          ansible_ssh_common_args=-o ProxyCommand="ssh -i {{ ansible_ssh_private_key_file }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -W %h:%p -q {{ ansible_user }}@{{ hostvars[groups['bastion'][0]].ansible_host }}"
+          EOF
+          fi
 
       - name: Install Ansible and Collections
         run: |
@@ -91,31 +123,40 @@ jobs:
         working-directory: ansible
         env:
           ANSIBLE_VAULT_PASSWORD_FILE: ~/.ansible/vault_pass
-          BASTION_HOST: ${{ secrets.BASTION_HOST }}
-          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
-          APP_HOST: ${{ secrets.APP_SERVER_PRIVATE_IP }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
         run: |
           ansible-playbook -i inventory/hosts.ini playbook.yml \
-            -u ubuntu \
-            --private-key ~/.ssh/id_rsa \
             --vault-password-file ~/.ansible/vault_pass \
-            --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand=\"ssh -W %h:%p -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ${BASTION_USER}@${BASTION_HOST}\"" \
-            -e "ansible_host=${APP_HOST}" \
             -e "image_tag=${{ github.sha }}" \
-            -e "docker_backend_image=${ECR_REGISTRY}/smartlearn-backend:${{ github.sha }}" \
-            -e "docker_frontend_image=${ECR_REGISTRY}/smartlearn-frontend:${{ github.sha }}"
+            -e "ecr_registry=${ECR_REGISTRY}" \
+            -e "aws_region=${AWS_REGION}"
+
+      - name: Close Bastion SSH for GitHub Actions runner
+        if: always() && steps.open-bastion.outputs.runner_ip != ''
+        env:
+          BASTION_SG_ID: ${{ secrets.BASTION_SECURITY_GROUP_ID }}
+          RUNNER_IP: ${{ steps.open-bastion.outputs.runner_ip }}
+        run: |
+          echo "Revoking temporary SSH rule for ${RUNNER_IP}/32 on ${BASTION_SG_ID}..."
+          aws ec2 revoke-security-group-ingress \
+            --group-id "$BASTION_SG_ID" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "${RUNNER_IP}/32" || true
 
       - name: Smoke Test (ALB Health & Readiness)
         env:
-          ALB_DNS: ${{ secrets.ALB_DNS_NAME }}
+          ALB_DNS_RAW: ${{ secrets.ALB_DNS_NAME || 'smartlearn-alb-521972676.us-east-1.elb.amazonaws.com' }}
         run: |
-          echo "Starting smoke test targeting ALB at http://${ALB_DNS}/health ..."
+          ALB_HOST=$(echo "$ALB_DNS_RAW" | sed -E 's|^https?://||; s|/$||')
+          echo "Starting smoke test targeting ALB at http://${ALB_HOST}/health ..."
           STATUS=0
           for i in {1..30}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${ALB_DNS}/health" || true)
+            BODY=$(curl -s -w "\n%{http_code}" "http://${ALB_HOST}/health" || true)
+            STATUS=$(echo "$BODY" | tail -n1)
             if [ "$STATUS" -eq 200 ]; then
-              echo "Smoke test passed on attempt $i (HTTP 200 received from /health)."
+              echo "Smoke test passed on attempt $i (HTTP 200): $(echo "$BODY" | head -n1)"
               break
             fi
             echo "Waiting for service to become healthy... (attempt $i/30, status: $STATUS)"
@@ -128,8 +169,10 @@ jobs:
           fi
 
           echo "Verifying database readiness via /ready endpoint..."
-          READY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${ALB_DNS}/ready" || true)
-          echo "Readiness status: $READY_STATUS"
+          READY_BODY=$(curl -s -w "\n%{http_code}" "http://${ALB_HOST}/ready" || true)
+          READY_STATUS=$(echo "$READY_BODY" | tail -n1)
+          echo "Readiness status: ${READY_STATUS} | Body: $(echo "$READY_BODY" | head -n1)"
           if [ "$READY_STATUS" -ne 200 ]; then
-            echo "Warning: /ready returned $READY_STATUS (Database may still be initializing)."
+            echo "Error: /ready returned HTTP ${READY_STATUS}."
+            exit 1
           fi
