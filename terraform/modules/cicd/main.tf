@@ -29,10 +29,12 @@ data "aws_iam_policy_document" "assume_github" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values = [
-        "repo:${var.github_repository}:ref:refs/heads/${var.deploy_branch}",
-        "repo:${var.github_repository}:environment:${var.deploy_environment}",
-      ]
+      values = flatten([
+        for prefix in compact(["repo:${var.github_repository}", var.github_subject_prefix]) : [
+          "${prefix}:ref:refs/heads/${var.deploy_branch}",
+          "${prefix}:environment:${var.deploy_environment}",
+        ]
+      ])
     }
   }
 }

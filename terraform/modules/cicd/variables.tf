@@ -13,6 +13,12 @@ variable "github_repository" {
   }
 }
 
+variable "github_subject_prefix" {
+  description = "Immutable OIDC subject prefix GitHub sends for this repository, e.g. repo:owner@id/name@id"
+  type        = string
+  default     = ""
+}
+
 variable "deploy_branch" {
   description = "Only workflows running on this branch may assume the deploy role"
   type        = string
